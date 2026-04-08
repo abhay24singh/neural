@@ -99,30 +99,44 @@ class NeuralController extends ChangeNotifier {
     print("Direct Background SOS Triggered!");
 
     SharedPreferences prefs = await SharedPreferences.getInstance();
+    
+    // 1. Settings se contacts uthao
     List<String> contacts = prefs.getStringList('emergency_contacts') ?? [];
-    String message = prefs.getString('sos_message') ?? "SOS Alert from Neural Gate";
+    
+    // 2. Default Message (Tera purana logic)
+    String message = prefs.getString('sos_message') ?? "SOS Alert from Neural Gate! Help needed.";
 
-    if (contacts.isEmpty) {
-      print("🚨 Error: Settings mein koi number save nahi hai!");
-      return; 
-    }
+    // 👇 YAHAN HUMNE DEFAULT NUMBER SET KIYA HAI 👇
+
+    String defaultNumber = "+916267364421"; 
 
     final Telephony telephony = Telephony.instance;
     bool? permissionsGranted = await telephony.requestPhoneAndSmsPermissions;
 
     if (permissionsGranted != null && permissionsGranted) {
-      print("✅ Permission mil gayi! Background mein SMS bhej raha hoon...");
-      
-      for (String number in contacts) {
-        // 👇 YAHAN SE HUMNE STATUS LISTENER HATA DIYA HAI 👇
+      print("✅ Permission mil gayi!");
+
+      // 3. Agar list khali hai, toh default number par bhej do
+      if (contacts.isEmpty) {
+        print("⚠️ No contacts saved. Sending to Default Number: $defaultNumber");
         telephony.sendSms(
-          to: number,
+          to: defaultNumber,
           message: message,
         );
-        print("🚀 SMS sent to $number (Check recipient's phone!)");
+        print("🚀 Default SMS sent successfully!");
+      } 
+      // 4. Agar list mein numbers hain, toh sabko bhej do
+      else {
+        for (String number in contacts) {
+          telephony.sendSms(
+            to: number,
+            message: message,
+          );
+          print("🚀 SMS sent to $number");
+        }
       }
     } else {
-      print("🚫 Error: User ne SMS bhejne ki permission nahi di!");
+      print("🚫 Error: SMS permission denied!");
     }
   }
 
