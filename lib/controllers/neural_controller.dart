@@ -1,43 +1,45 @@
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/esp_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:telephony/telephony.dart';
 
 class NeuralController extends ChangeNotifier {
   final EspService _service;
 
   List<double> points = [];
   double threshold = 100.0;
-  double _graphMax = 250.0; // The adaptive vertical limit
+  double _graphMax = 250.0; 
   String activeMode = "relay";
   bool isConnected = false;
-  double userThreshold = 100.0; // Store user's threshold for non-SOS modes
-  double _espThreshold = 100.0; // Value sent to the ESP32
+  double userThreshold = 100.0; 
+  double _espThreshold = 100.0; 
   int lastTriggerMs = 0;
+  
+  // Theme ka variable
+  bool isDarkMode = true; 
 
-  static const String sosNumber =
-      "+919039421523"; // Hardcoded SOS number - replace with actual number
-  static const String smsBackendUrl =
-      "https://your-backend-url.com/send-sms"; // Replace with your actual backend URL
+  static const String smsBackendUrl = "https://your-backend-url.com/send-sms"; 
 
   NeuralController(this._service) {
+    // Theme load karne ki line
+    loadTheme();
+    
     _service.signalStream.listen((value) {
       isConnected = true;
       points.add(value);
       if (points.length > 150) points.removeAt(0);
 
       // --- ADAPTIVE AUTO THRESHOLD ADJUST ---
-      // Find the highest peak in the current buffer
       double highestInView =
           points.isNotEmpty ? points.reduce((a, b) => a > b ? a : b) : 100.0;
 
-      // Target max is either the signal peak or the threshold line + 20% margin
       double targetMax =
           (highestInView > threshold ? highestInView : threshold) * 1.2;
 
-      // Smoothly interpolate _graphMax to prevent jittery scaling
       _graphMax = (_graphMax * 0.9) + (targetMax * 0.1);
 
       // Spike detection for SOS mode
@@ -62,7 +64,6 @@ class NeuralController extends ChangeNotifier {
     threshold = val;
     userThreshold = val;
 
-    // Only update the ESP threshold when not in SOS mode.
     if (activeMode != "sos") {
       _espThreshold = val;
       _service.sendCommand("/setTh?v=${_espThreshold.toInt()}");
@@ -75,15 +76,13 @@ class NeuralController extends ChangeNotifier {
     activeMode = mode;
 
     if (mode == "sos") {
-      // Keep the slider value stable, but tell the ESP to ignore spikes.
       _espThreshold = 10000.0;
-      sendSOS(); // Send initial SOS
+      sendSOS(); 
     } else {
       _espThreshold = userThreshold;
       _service.sendCommand("/setTarget?t=$mode");
     }
 
-    // Update ESP threshold based on mode.
     _service.sendCommand("/setTh?v=${_espThreshold.toInt()}");
     notifyListeners();
   }
@@ -97,29 +96,49 @@ class NeuralController extends ChangeNotifier {
   }
 
   void sendSOS() async {
-    const platform = MethodChannel('sos_app/sms');
-    try {
-      // Try direct SMS send via MethodChannel
-      final result = await platform.invokeMethod('sendSMS', {
-        'phone': sosNumber,
-        'message': 'SOS Alert from Neural Gate',
-      });
-      print("SOS SMS sent directly: $result");
-    } on PlatformException catch (e) {
-      print("Direct SMS failed: ${e.message}, falling back to SMS app");
-      // Fallback: Open SMS app
-      final Uri smsUri = Uri(
-        scheme: 'sms',
-        path: sosNumber,
-        queryParameters: {'body': 'SOS Alert from Neural Gate'},
-      );
-      if (await canLaunchUrl(smsUri)) {
-        await launchUrl(smsUri);
-        print("Opened SMS app for manual send");
-      } else {
-        print("Could not launch SMS app");
-      }
+    print("Direct Background SOS Triggered!");
+
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    List<String> contacts = prefs.getStringList('emergency_contacts') ?? [];
+    String message = prefs.getString('sos_message') ?? "SOS Alert from Neural Gate";
+
+    if (contacts.isEmpty) {
+      print("🚨 Error: Settings mein koi number save nahi hai!");
+      return; 
     }
+
+    final Telephony telephony = Telephony.instance;
+    bool? permissionsGranted = await telephony.requestPhoneAndSmsPermissions;
+
+    if (permissionsGranted != null && permissionsGranted) {
+      print("✅ Permission mil gayi! Background mein SMS bhej raha hoon...");
+      
+      for (String number in contacts) {
+        // 👇 YAHAN SE HUMNE STATUS LISTENER HATA DIYA HAI 👇
+        telephony.sendSms(
+          to: number,
+          message: message,
+        );
+        print("🚀 SMS sent to $number (Check recipient's phone!)");
+      }
+    } else {
+      print("🚫 Error: User ne SMS bhejne ki permission nahi di!");
+    }
+  }
+
+  // App start hote hi saved theme load karne ke liye
+  void loadTheme() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    isDarkMode = prefs.getBool('is_dark_mode') ?? true;
+    notifyListeners();
+  }
+
+  // Naya theme set karne aur save karne ke liye
+  void toggleTheme(bool value) async {
+    isDarkMode = value;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('is_dark_mode', value);
+    notifyListeners(); 
   }
 
   @override

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'services/esp_service.dart';
 import 'controllers/neural_controller.dart';
 import 'widgets/neural_graph.dart';
+import 'settings_page.dart';
 
 void main() {
   runApp(
@@ -18,12 +19,22 @@ class NeuralGateApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Yahan hum app ko batate hain ki controller se theme suno
+    final isDark = context.watch<NeuralController>().isDarkMode;
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
+      // Theme Mode set kiya isDark ke hisaab se
+      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+      darkTheme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF050505),
         colorScheme: ColorScheme.fromSeed(
             seedColor: const Color(0xFF007AFF), brightness: Brightness.dark),
+      ),
+      theme: ThemeData.light().copyWith(
+        scaffoldBackgroundColor: const Color(0xFFF0F0F5),
+        colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF007AFF), brightness: Brightness.light),
       ),
       home: const HomeScreen(),
     );
@@ -35,26 +46,47 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Theme read karna
+    final isDark = context.watch<NeuralController>().isDarkMode;
+
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF0A0B10), Color(0xFF050505)],
+            // Background gradient logic
+            colors: isDark
+                ? [const Color(0xFF0A0B10), const Color(0xFF050505)]
+                : [Colors.white, const Color(0xFFE2E2E2)], // Light Mode colors
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Text("NEURALGATE",
-                    style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 4,
-                        color: Colors.white)),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const SizedBox(width: 48), // Isse text center mein rahega
+                    Text("NEURALGATE",
+                        style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 4,
+                            color: isDark ? Colors.white : Colors.black87)),
+                    IconButton(
+                      icon: Icon(Icons.settings, color: isDark ? Colors.white : Colors.black87),
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => SettingsPage()),
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
 
               // GRAPH CARD
@@ -64,9 +96,10 @@ class HomeScreen extends StatelessWidget {
                   margin: const EdgeInsets.symmetric(horizontal: 20),
                   padding: const EdgeInsets.all(15),
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: isDark ? Colors.black : Colors.white,
                     borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+                    boxShadow: isDark ? [] : [const BoxShadow(color: Colors.black12, blurRadius: 15)],
                   ),
                   child: Consumer<NeuralController>(
                     builder: (context, ctrl, _) => NeuralGraph(
@@ -87,9 +120,10 @@ class HomeScreen extends StatelessWidget {
                   margin: const EdgeInsets.all(20),
                   padding: const EdgeInsets.all(25),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF121214),
+                    color: isDark ? const Color(0xFF121214) : Colors.white,
                     borderRadius: BorderRadius.circular(32),
-                    border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)),
+                    boxShadow: isDark ? [] : [const BoxShadow(color: Colors.black12, blurRadius: 15)],
                   ),
                   child: const SingleChildScrollView(child: ControlLayout()),
                 ),
@@ -107,14 +141,16 @@ class ControlLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = context.read<NeuralController>();
+    // Yahan bhi theme read karenge taaki text/icons update ho jayein
+    final controller = context.watch<NeuralController>();
+    final isDark = controller.isDarkMode;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text("SELECT DEVICE",
+        Text("SELECT DEVICE",
             style: TextStyle(
-                color: Colors.white54,
+                color: isDark ? Colors.white54 : Colors.black54,
                 fontSize: 12,
                 fontWeight: FontWeight.bold)),
         Selector<NeuralController, String>(
@@ -123,7 +159,8 @@ class ControlLayout extends StatelessWidget {
             value: mode,
             isExpanded: true,
             underline: const SizedBox(),
-            dropdownColor: const Color(0xFF1C1C1E),
+            dropdownColor: isDark ? const Color(0xFF1C1C1E) : Colors.white,
+            style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 16),
             items: const [
               DropdownMenuItem(value: "relay", child: Text("Relay Module")),
               DropdownMenuItem(value: "phone", child: Text("Smartphone")),
@@ -132,7 +169,7 @@ class ControlLayout extends StatelessWidget {
             onChanged: (v) => controller.setMode(v!),
           ),
         ),
-        const Divider(color: Colors.white10, height: 40),
+        Divider(color: isDark ? Colors.white10 : Colors.black12, height: 40),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -142,8 +179,10 @@ class ControlLayout extends StatelessWidget {
             Selector<NeuralController, double>(
               selector: (_, c) => c.threshold,
               builder: (context, th, _) => Text("${th.toInt()}",
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
+                  style: TextStyle(
+                      fontSize: 18, 
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : Colors.black87)),
             ),
           ],
         ),
