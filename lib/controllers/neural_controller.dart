@@ -1,4 +1,4 @@
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/esp_service.dart';
@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:telephony/telephony.dart';
+import 'package:geolocator/geolocator.dart';
 
 class NeuralController extends ChangeNotifier {
   final EspService _service;
@@ -77,7 +78,7 @@ class NeuralController extends ChangeNotifier {
 
     if (mode == "sos") {
       _espThreshold = 10000.0;
-      sendSOS(); 
+        
     } else {
       _espThreshold = userThreshold;
       _service.sendCommand("/setTarget?t=$mode");
@@ -96,49 +97,46 @@ class NeuralController extends ChangeNotifier {
   }
 
   void sendSOS() async {
-    print("Direct Background SOS Triggered!");
+  print("🚀 SOS with Location Triggered!");
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    
-    // 1. Settings se contacts uthao
-    List<String> contacts = prefs.getStringList('emergency_contacts') ?? [];
-    
-    // 2. Default Message (Tera purana logic)
-    String message = prefs.getString('sos_message') ?? "SOS Alert from Neural Gate! Help needed.";
-
-    // 👇 YAHAN HUMNE DEFAULT NUMBER SET KIYA HAI 👇
-
-    String defaultNumber = "+916267364421"; 
-
-    final Telephony telephony = Telephony.instance;
-    bool? permissionsGranted = await telephony.requestPhoneAndSmsPermissions;
-
-    if (permissionsGranted != null && permissionsGranted) {
-      print("✅ Permission mil gayi!");
-
-      // 3. Agar list khali hai, toh default number par bhej do
-      if (contacts.isEmpty) {
-        print("⚠️ No contacts saved. Sending to Default Number: $defaultNumber");
-        telephony.sendSms(
-          to: defaultNumber,
-          message: message,
-        );
-        print("🚀 Default SMS sent successfully!");
-      } 
-      // 4. Agar list mein numbers hain, toh sabko bhej do
-      else {
-        for (String number in contacts) {
-          telephony.sendSms(
-            to: number,
-            message: message,
-          );
-          print("🚀 SMS sent to $number");
-        }
-      }
-    } else {
-      print("🚫 Error: SMS permission denied!");
+  // 1. Location Permission Check & Request
+  LocationPermission permission = await Geolocator.checkPermission();
+  if (permission == LocationPermission.denied) {
+    permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied) {
+      print("🚫 Location permissions are denied");
+      return;
     }
   }
+
+  // 2. Current Location nikalna
+  Position position = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high);
+  
+  // 3. Google Maps Link banana
+  String mapLink = "https://www.google.com/maps/search/?api=1&query=${position.latitude},${position.longitude}";
+   
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+  List<String> contacts = prefs.getStringList('emergency_contacts') ?? [];
+  
+  // 4. Message mein Link joddna
+  String baseMessage = prefs.getString('sos_message') ?? "SOS Alert! I need help.";
+  String finalMessage = "$baseMessage \n\nMy Location: $mapLink";
+
+  String defaultNumber = "+916267364421"; 
+  final Telephony telephony = Telephony.instance;
+
+  // SMS bhejne ka wahi purana logic
+  if (contacts.isEmpty) {
+    telephony.sendSms(to: defaultNumber, message: finalMessage);
+    print("🚀 Default SMS with Location Sent!");
+  } else {
+    for (String number in contacts) {
+      telephony.sendSms(to: number, message: finalMessage);
+      print("🚀 SMS with Location sent to $number");
+    }
+  }
+}
 
   // App start hote hi saved theme load karne ke liye
   void loadTheme() async {
