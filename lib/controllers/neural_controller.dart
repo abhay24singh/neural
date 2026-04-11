@@ -120,7 +120,14 @@ class NeuralController extends ChangeNotifier {
   List<String> contacts = prefs.getStringList('emergency_contacts') ?? [];
   
   // 4. Message mein Link joddna
-  String baseMessage = prefs.getString('sos_message') ?? "SOS Alert! I need help.";
+  String? savedMessage = prefs.getString('sos_message');
+  String baseMessage;
+
+  if (savedMessage == null || savedMessage.trim().isEmpty) {
+    baseMessage = "Emergency! Brain signal threshold exceeded. [Neural Gate]";
+  } else {
+    baseMessage = savedMessage;
+  }
   String finalMessage = "$baseMessage \n\nMy Location: $mapLink";
 
   String defaultNumber = "+916267364421"; 
