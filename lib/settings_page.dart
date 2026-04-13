@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:provider/provider.dart'; // 👈 Provider ka import
-import 'controllers/neural_controller.dart'; // 👈 NeuralController ka import
+import 'package:provider/provider.dart'; 
+import 'controllers/neural_controller.dart'; 
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -48,7 +48,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Background color aur text color ab _isDarkMode ke hisaab se badlenge
     Color bgColor = _isDarkMode ? const Color(0xFF0A0E21) : Colors.white;
     Color textColor = _isDarkMode ? Colors.white : Colors.black87;
 
@@ -58,14 +57,16 @@ class _SettingsPageState extends State<SettingsPage> {
         title: Text("SOS CONFIGURATION", style: TextStyle(color: textColor)),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        iconTheme: IconThemeData(color: textColor), // Back button ka color
+        iconTheme: IconThemeData(color: textColor), 
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: ListView(
+           
           children: [
-            // THEME SWITCH YAHAN HAI
+            // ---------------------------------------------------------
+            // 1. THEME SWITCH
+            // ---------------------------------------------------------
             SwitchListTile(
               title: Text(
                 "Dark Mode", 
@@ -78,9 +79,7 @@ class _SettingsPageState extends State<SettingsPage> {
               value: _isDarkMode,
               activeColor: Colors.blue,
               onChanged: (bool value) {
-                // Yeh line NeuralController ko order degi poori app ka theme badalne ke liye
                 Provider.of<NeuralController>(context, listen: false).toggleTheme(value);
-                
                 setState(() {
                   _isDarkMode = value;
                 });
@@ -90,6 +89,77 @@ class _SettingsPageState extends State<SettingsPage> {
             const Divider(color: Colors.grey),
             const SizedBox(height: 10),
 
+            // ---------------------------------------------------------
+            // 📍 2. NEW: LOCATION MODE & DURATION
+            // ---------------------------------------------------------
+            Consumer<NeuralController>(
+              builder: (context, controller, child) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("LOCATION TRACKING MODE", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    
+                    // Dropdown for Mode
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: _isDarkMode ? Colors.white10 : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: controller.locationMode,
+                          dropdownColor: bgColor,
+                          isExpanded: true,
+                          icon: const Icon(Icons.location_on, color: Colors.blue),
+                          style: TextStyle(color: textColor, fontSize: 16),
+                          items: const [
+                            DropdownMenuItem(value: "off", child: Text("📴 Off (Only Text SMS)")),
+                            DropdownMenuItem(value: "current", child: Text("📍 Current Location (Static Link)")),
+                            DropdownMenuItem(value: "live", child: Text("🚨 Live Tracking (Continuous)")),
+                          ],
+                          onChanged: (String? newValue) {
+                            if (newValue != null) {
+                              controller.setLocationMode(newValue);
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                    
+                    // Conditional UI: Duration Buttons (Only shows if "Live" is selected)
+                    if (controller.locationMode == "live") ...[
+                      const SizedBox(height: 15),
+                      Text("LIVE TRACKING DURATION", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [10, 30, 60].map((int mins) {
+                          bool isSelected = controller.liveDuration == mins;
+                          return ChoiceChip(
+                            label: Text(mins == 60 ? "1 Hour" : "$mins Min", style: TextStyle(color: isSelected ? Colors.white : textColor)),
+                            selected: isSelected,
+                            selectedColor: Colors.blue,
+                            backgroundColor: _isDarkMode ? Colors.white10 : Colors.grey.shade300,
+                            onSelected: (bool selected) {
+                              if (selected) controller.setLiveDuration(mins);
+                            },
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    const Divider(color: Colors.grey),
+                    const SizedBox(height: 10),
+                  ],
+                );
+              },
+            ),
+
+            // ---------------------------------------------------------
+            // 3. CUSTOM SOS MESSAGE
+            // ---------------------------------------------------------
             Text("CUSTOM SOS MESSAGE", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
             TextField(
               controller: _msgController,
@@ -101,6 +171,10 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             const SizedBox(height: 30),
+
+            // ---------------------------------------------------------
+            // 4. EMERGENCY CONTACTS
+            // ---------------------------------------------------------
             Text("EMERGENCY CONTACTS", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
             Row(
               children: [
@@ -126,8 +200,10 @@ class _SettingsPageState extends State<SettingsPage> {
                 )
               ],
             ),
-            Expanded(
-              child: ListView.builder(
+                   
+               ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
                 itemCount: _contacts.length,
                 itemBuilder: (context, index) => ListTile(
                   leading: Icon(Icons.person, color: _isDarkMode ? Colors.white70 : Colors.black54),
@@ -138,7 +214,11 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                 ),
               ),
-            ),
+            
+            
+            // ---------------------------------------------------------
+            // 5. SAVE BUTTON
+            // ---------------------------------------------------------
             Container(
               width: double.infinity,
               child: ElevatedButton(
