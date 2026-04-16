@@ -38,9 +38,12 @@ class _SettingsPageState extends State<SettingsPage> {
     await prefs.setString('sos_message', _msgController.text);
     await prefs.setBool('is_dark_mode', _isDarkMode);
     
+    // Controller ko update karo taaki app ko naye numbers pata chal jayein
+    Provider.of<NeuralController>(context, listen: false).loadSettings();
+    
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("Settings Saved Successfully!", style: TextStyle(color: Colors.white)), 
+        content: Text("Settings Saved Successfully!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
         backgroundColor: Colors.green
       ),
     );
@@ -54,7 +57,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        title: Text("SOS CONFIGURATION", style: TextStyle(color: textColor)),
+        title: Text("SOS CONFIGURATION", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: IconThemeData(color: textColor), 
@@ -62,7 +65,6 @@ class _SettingsPageState extends State<SettingsPage> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: ListView(
-           
           children: [
             // ---------------------------------------------------------
             // 1. THEME SWITCH
@@ -77,7 +79,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 style: const TextStyle(color: Colors.grey),
               ),
               value: _isDarkMode,
-              activeColor: Colors.blue,
+              activeColor: const Color(0xFF007AFF),
               onChanged: (bool value) {
                 Provider.of<NeuralController>(context, listen: false).toggleTheme(value);
                 setState(() {
@@ -86,88 +88,72 @@ class _SettingsPageState extends State<SettingsPage> {
                 _saveSettings(); 
               },
             ),
+            
             const Divider(color: Colors.grey),
-            const SizedBox(height: 10),
+            const SizedBox(height: 15),
 
             // ---------------------------------------------------------
-            // 📍 2. NEW: LOCATION MODE & DURATION
+            // 2. TRACKING CONFIGURATION (NAYA SECTION YAHAN HAI)
             // ---------------------------------------------------------
-            Consumer<NeuralController>(
-              builder: (context, controller, child) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text("LOCATION TRACKING MODE", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    
-                    // Dropdown for Mode
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: _isDarkMode ? Colors.white10 : Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: controller.locationMode,
-                          dropdownColor: bgColor,
-                          isExpanded: true,
-                          icon: const Icon(Icons.location_on, color: Colors.blue),
-                          style: TextStyle(color: textColor, fontSize: 16),
-                          items: const [
-                            DropdownMenuItem(value: "off", child: Text("📴 Off (Only Text SMS)")),
-                            DropdownMenuItem(value: "current", child: Text("📍 Current Location (Static Link)")),
-                            DropdownMenuItem(value: "live", child: Text("🚨 Live Tracking (Continuous)")),
-                          ],
-                          onChanged: (String? newValue) {
-                            if (newValue != null) {
-                              controller.setLocationMode(newValue);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                    
-                    // Conditional UI: Duration Buttons (Only shows if "Live" is selected)
-                    if (controller.locationMode == "live") ...[
-                      const SizedBox(height: 15),
-                      Text("LIVE TRACKING DURATION", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 12)),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [10, 30, 60].map((int mins) {
-                          bool isSelected = controller.liveDuration == mins;
-                          return ChoiceChip(
-                            label: Text(mins == 60 ? "1 Hour" : "$mins Min", style: TextStyle(color: isSelected ? Colors.white : textColor)),
-                            selected: isSelected,
-                            selectedColor: Colors.blue,
-                            backgroundColor: _isDarkMode ? Colors.white10 : Colors.grey.shade300,
-                            onSelected: (bool selected) {
-                              if (selected) controller.setLiveDuration(mins);
-                            },
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    const Divider(color: Colors.grey),
-                    const SizedBox(height: 10),
-                  ],
-                );
-              },
+            Text("TRACKING CONFIGURATION", style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
+            const SizedBox(height: 15),
+
+            // 2A. Remote Request (On-Demand) Toggle
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text("Allow Remote SMS Request", style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold)),
+              subtitle: const Text("Reply with location on 'current location' SMS", style: TextStyle(color: Colors.grey, fontSize: 12)),
+              value: Provider.of<NeuralController>(context).isRemoteRequestEnabled,
+              activeColor: const Color(0xFF007AFF),
+              onChanged: (v) => Provider.of<NeuralController>(context, listen: false).toggleRemoteRequest(v),
             ),
+
+            // 2B. Location Strategy Dropdown (Static, Auto-Update, etc.)
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text("SOS Location Strategy", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+              trailing: DropdownButton<String>(
+                dropdownColor: bgColor,
+                style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                value: Provider.of<NeuralController>(context).locationStrategy,
+                items: const [
+                  DropdownMenuItem(value: "off", child: Text("Only Text SMS")),
+                  DropdownMenuItem(value: "static", child: Text("Current Location Once")),
+                  DropdownMenuItem(value: "auto", child: Text("Auto-Update (Distance)")),
+                ],
+                onChanged: (v) => Provider.of<NeuralController>(context, listen: false).setLocationStrategy(v!),
+              ),
+            ),
+
+            // 2C. Distance Selection (Sirf tab dikhega jab Auto-Update select hoga)
+            if (Provider.of<NeuralController>(context).locationStrategy == "auto")
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text("Update Distance Threshold", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                trailing: DropdownButton<double>(
+                  dropdownColor: bgColor,
+                  style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
+                  value: Provider.of<NeuralController>(context).distanceThreshold,
+                  items: [0.5, 1.0, 2.0, 5.0].map((e) => DropdownMenuItem(value: e, child: Text("$e KM"))).toList(),
+                  onChanged: (v) => Provider.of<NeuralController>(context, listen: false).setDistanceThreshold(v!),
+                ),
+              ),
+
+            const Divider(color: Colors.grey),
+            const SizedBox(height: 20),
 
             // ---------------------------------------------------------
             // 3. CUSTOM SOS MESSAGE
             // ---------------------------------------------------------
-            Text("CUSTOM SOS MESSAGE", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+            Text("CUSTOM SOS MESSAGE", style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
             TextField(
               controller: _msgController,
               style: TextStyle(color: textColor),
               decoration: const InputDecoration(
                 hintText: "Type your emergency message here...",
                 hintStyle: TextStyle(color: Colors.grey),
-                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.blue)),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF007AFF))),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF007AFF), width: 2)),
               ),
             ),
             const SizedBox(height: 30),
@@ -175,7 +161,7 @@ class _SettingsPageState extends State<SettingsPage> {
             // ---------------------------------------------------------
             // 4. EMERGENCY CONTACTS
             // ---------------------------------------------------------
-            Text("EMERGENCY CONTACTS", style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+            Text("EMERGENCY CONTACTS", style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
             Row(
               children: [
                 Expanded(
@@ -184,13 +170,15 @@ class _SettingsPageState extends State<SettingsPage> {
                     keyboardType: TextInputType.phone,
                     style: TextStyle(color: textColor),
                     decoration: const InputDecoration(
-                      hintText: "Enter Phone Number (with Country Code)",
+                      hintText: "Enter Phone No (e.g. +91XXXXXXXXXX)",
                       hintStyle: TextStyle(color: Colors.grey),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey)),
+                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF007AFF))),
                     ),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.add_circle, color: Colors.blue, size: 30),
+                  icon: const Icon(Icons.add_circle, color: Color(0xFF007AFF), size: 35),
                   onPressed: () {
                     if (_phoneController.text.isNotEmpty) {
                       setState(() => _contacts.add(_phoneController.text));
@@ -200,31 +188,45 @@ class _SettingsPageState extends State<SettingsPage> {
                 )
               ],
             ),
-                   
-               ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _contacts.length,
-                itemBuilder: (context, index) => ListTile(
+            
+            const SizedBox(height: 10),
+
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _contacts.length,
+              itemBuilder: (context, index) => Card(
+                color: _isDarkMode ? Colors.white10 : Colors.grey.shade200,
+                elevation: 0,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                child: ListTile(
                   leading: Icon(Icons.person, color: _isDarkMode ? Colors.white70 : Colors.black54),
-                  title: Text(_contacts[index], style: TextStyle(color: textColor)),
+                  title: Text(_contacts[index], style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
                   trailing: IconButton(
                     icon: const Icon(Icons.remove_circle, color: Colors.redAccent),
                     onPressed: () => setState(() => _contacts.removeAt(index)),
                   ),
                 ),
               ),
+            ),
             
-            
+            const SizedBox(height: 40),
+
             // ---------------------------------------------------------
             // 5. SAVE BUTTON
             // ---------------------------------------------------------
-            Container(
+            SizedBox(
               width: double.infinity,
+              height: 55,
               child: ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF007AFF),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  elevation: 5,
+                  shadowColor: const Color(0xFF007AFF).withOpacity(0.5)
+                ),
                 onPressed: _saveSettings,
-                child: const Text("SAVE CONFIGURATION", style: TextStyle(color: Colors.white)),
+                child: const Text("SAVE CONFIGURATION", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, letterSpacing: 1)),
               ),
             )
           ],
