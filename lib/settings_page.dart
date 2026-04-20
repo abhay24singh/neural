@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart'; 
 import 'controllers/neural_controller.dart'; 
+import 'advanced_settings_screen.dart'; // 🔥 Import for Advanced Settings Screen
 
 class SettingsPage extends StatefulWidget {
   @override
@@ -32,18 +33,24 @@ class _SettingsPageState extends State<SettingsPage> {
   }
 
   // Data save karna
+  // Data save karna aur Dic1 mein add karna
   _saveSettings() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setStringList('emergency_contacts', _contacts);
     await prefs.setString('sos_message', _msgController.text);
     await prefs.setBool('is_dark_mode', _isDarkMode);
     
-    // Controller ko update karo taaki app ko naye numbers pata chal jayein
-    Provider.of<NeuralController>(context, listen: false).loadSettings();
+    final controller = Provider.of<NeuralController>(context, listen: false);
+    controller.loadSettings();
+
+    // 🔥 MAIN FIX: Har contact ke liye code generate karwao (agar pehle se nahi hai)
+    for (String contact in _contacts) {
+      controller.addNewAuthorizedUser(contact);
+    }
     
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text("Settings Saved Successfully!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
+        content: Text("Settings Saved! Codes generated for new contacts.", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), 
         backgroundColor: Colors.green
       ),
     );
@@ -93,7 +100,7 @@ class _SettingsPageState extends State<SettingsPage> {
             const SizedBox(height: 15),
 
             // ---------------------------------------------------------
-            // 2. TRACKING CONFIGURATION (NAYA SECTION YAHAN HAI)
+            // 2. TRACKING CONFIGURATION 
             // ---------------------------------------------------------
             Text("TRACKING CONFIGURATION", style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
@@ -138,6 +145,29 @@ class _SettingsPageState extends State<SettingsPage> {
                   onChanged: (v) => Provider.of<NeuralController>(context, listen: false).setDistanceThreshold(v!),
                 ),
               ),
+
+            const Divider(color: Colors.grey),
+            const SizedBox(height: 15),
+
+            // ---------------------------------------------------------
+            // 🔥 2D. ADVANCED SECURITY SETTINGS BUTTON (NEW)
+            // ---------------------------------------------------------
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const CircleAvatar(
+                backgroundColor: Color(0xFF007AFF),
+                child: Icon(Icons.security, color: Colors.white),
+              ),
+              title: Text("Advanced Security", style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+              subtitle: const Text("Manage code leaks, limits & authorized users", style: TextStyle(color: Colors.grey, fontSize: 12)),
+              trailing: Icon(Icons.arrow_forward_ios, size: 16, color: textColor),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AdvancedSettingsScreen()),
+                );
+              },
+            ),
 
             const Divider(color: Colors.grey),
             const SizedBox(height: 20),

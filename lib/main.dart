@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:telephony/telephony.dart';
 import 'services/esp_service.dart';
 import 'controllers/neural_controller.dart';
 import 'widgets/neural_graph.dart';
-import 'settings_page.dart';
+// Note: Make sure the file is named settings_page.dart, or change this import accordingly
+import 'settings_page.dart'; 
 
 void main() {
   runApp(
@@ -14,6 +17,9 @@ void main() {
   );
 }
 
+// ============================================================================
+// 📱 MAIN APP WIDGET
+// ============================================================================
 class NeuralGateApp extends StatelessWidget {
   const NeuralGateApp({super.key});
 
@@ -39,8 +45,58 @@ class NeuralGateApp extends StatelessWidget {
   }
 }
 
-class HomeScreen extends StatelessWidget {
+// ============================================================================
+// 🏠 HOME SCREEN (Converted to StatefulWidget to support Pop-ups)
+// ============================================================================
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  
+  @override
+  void initState() {
+    super.initState();
+    
+    // 🔥 App khulte hi sabse pehle ye function chalega
+    _requestAllPermissions();
+
+    // Fir Pop-up check karega
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<NeuralController>(context, listen: false).checkForCompromisedUsers(context);
+    });
+  }
+
+  // 🛡️ PERMISSION MANGER FUNCTION
+  // 🛡️ PERMISSION MANAGER & SMS LISTENER
+  Future<void> _requestAllPermissions() async {
+    // 1. Location Permission
+    LocationPermission locPerm = await Geolocator.checkPermission();
+    if (locPerm == LocationPermission.denied) {
+      locPerm = await Geolocator.requestPermission();
+    }
+    
+    // 2. SMS & Phone Permission aur Listener ON karna
+    bool? smsPermission = await Telephony.instance.requestPhoneAndSmsPermissions;
+    
+    if (smsPermission != null && smsPermission) {
+      print("✅ Permissions Granted! Starting SMS Listener...");
+      
+      // 🔥 YAHAN ENGINE START HOTA HAI 🔥
+      Telephony.instance.listenIncomingSms(
+        onNewMessage: (SmsMessage message) {
+          // Agar app open hai (Foreground) tab bhi check karo
+          backgroundSmsHandler(message); 
+        },
+        onBackgroundMessage: backgroundSmsHandler, // App background/kill hai tab check karo
+      );
+    } else {
+      print("❌ SMS Permission Denied!");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,19 +116,22 @@ class HomeScreen extends StatelessWidget {
         child: SafeArea( 
           child: Column(
             children: [
-              // --- UPRA WALI PATTI ---
+              // --- HEADER ---
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const SizedBox(width: 48), 
-                    Text("NEURALGATE",
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 4, 
-                            color: isDark ? Colors.white : Colors.black87)),
+                    Text(
+                      "NEURALGATE",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 4, 
+                        color: isDark ? Colors.white : Colors.black87
+                      )
+                    ),
                     IconButton(
                       icon: Icon(Icons.settings, color: isDark ? Colors.white : Colors.black87),
                       onPressed: () {
@@ -86,7 +145,7 @@ class HomeScreen extends StatelessWidget {
                 ),
               ),
 
-              // --- GRAPH WALA DIBBA ---
+              // --- GRAPH PLOTTER ---
               Expanded(
                 flex: 3, 
                 child: Container(
@@ -110,7 +169,7 @@ class HomeScreen extends StatelessWidget {
 
               const SizedBox(height: 20), 
 
-              // --- CONTROL WALA DIBBA ---
+              // --- CONTROLLER BOX ---
               Expanded(
                 flex: 4, 
                 child: Container(
@@ -133,7 +192,9 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-// Ye class control wale dibbe ke andar ka saaman banati hai
+// ============================================================================
+// 🎛️ CONTROLS LAYOUT 
+// ============================================================================
 class ControlLayout extends StatelessWidget {
   const ControlLayout({super.key});
 
@@ -142,7 +203,6 @@ class ControlLayout extends StatelessWidget {
     final controller = context.watch<NeuralController>();
     final isDark = controller.isDarkMode;
 
-    // ControlLayout class ke andar Column ke children ko is se replace kar do:
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -169,11 +229,22 @@ class ControlLayout extends StatelessWidget {
             Text("${controller.threshold.toInt()}", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
           ],
         ),
-        Slider(value: controller.threshold, min: 10, max: 500, activeColor: const Color(0xFF007AFF), onChanged: (v) => controller.setThreshold(v)),
+        Slider(
+          value: controller.threshold, 
+          min: 10, 
+          max: 500, 
+          activeColor: const Color(0xFF007AFF), 
+          onChanged: (v) => controller.setThreshold(v)
+        ),
         const SizedBox(height: 30),
         ElevatedButton(
           onPressed: () => controller.triggerManual(),
-          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF007AFF), foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 65), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF007AFF), 
+            foregroundColor: Colors.white, 
+            minimumSize: const Size(double.infinity, 65), 
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+          ),
           child: const Text("MANUAL TRIGGER", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ),
         if (controller.isTrackingActive) 
@@ -183,10 +254,14 @@ class ControlLayout extends StatelessWidget {
               onPressed: () => controller.stopDistanceTracking(),
               icon: const Icon(Icons.stop_circle, color: Colors.white),
               label: const Text("STOP DISTANCE TRACKING", style: TextStyle(color: Colors.white)),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent, minimumSize: const Size(double.infinity, 60), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent, 
+                minimumSize: const Size(double.infinity, 60), 
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+              ),
             ),
           ),
       ],
     ); 
   } 
-} 
+}

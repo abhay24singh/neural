@@ -1,0 +1,15 @@
+if(r=!h)
+//yaha har h  code  ke liye check hoga h1 h2 h3 and so on---//`
+{request reject} 
+elseif(r==h)//for all h
+//yaha code agar dic1 mai mil gaya to number chek hoge--// 
+{  
+if(dic1.containsKey(r))
+{request accept}// koi counter nahi increse hoga kyuki ye already mil chuka hai
+elseif(dic2.not contain (r))//yaha ham dic2 mai check karenge ki r ka number hai ya nahi
+//agar r ka number dic1 mai nahi mila to uss number ko dic2 mai add karenge as a (jis h ka code ha ussh ka number )x(or ye konse nuber ka compromise hai matlab isse pahale kitne o third parti ne same code diya hai) or ek counter laga denge ki ye code issne kitne baar bheja hai   or ek counter dic1 mai uss h ka increase kar denge jiska ye code hai counter ch1 ch2 ya asse hi 1 increment kar denge 
+{
+    else(r ka number dic2 mai hai) //to check karenge ki counter ki limit cross ho gayi kya agar limit nahi kros hui to 1++ or agar limit cross hogayi to ye x ka number hi block kae denge or user ko notification jayega  kar denge or ye limit dic1 ke counter or dic2 ke counter user manually set karega 
+        { locaation send request accept}
+}       
+ }// agar dic1 ka counter ki limit complet ho gayi to request reject and jiska h ka code x ne bheja hai vo code expire ho jayega or user ko notification jayega ki uss h ko new code dena hai kya yes or no user ke hath mai hai  if yes the vo code genration wala function call hoga only for that h and usse  dic1 mai update kar denge or uss h ke jitne bhi x ha vo sab dic2 mai se remove ho jayenge is user say no then usska code expire hone par uss h ko bhi dic1 se remove kar denge 
