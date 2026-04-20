@@ -42,9 +42,9 @@ class AdvancedSettingsScreen extends StatelessWidget {
                   onChanged: (v) => controller.updateLimits(controller.maxTpLimit, v.toInt()),
                 ),
               ),
-            ),
+            )
 
-            SizedBox(height: 30),
+            /* SizedBox(height: 30),
 
             // --- 2. LIVE DICTIONARY MONITOR (DIC 1) ---
             Text("Dictionary 1 (Authorized Keys)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
@@ -91,14 +91,16 @@ class AdvancedSettingsScreen extends StatelessWidget {
             ),
             
             SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: () {
-                // Future function: Clear Dic2 data
-              },
-              icon: Icon(Icons.delete_forever),
-              label: Text("Clear Leak Database"),
+            ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            )
+              onPressed: () {
+                Provider.of<NeuralController>(context, listen: false).clearDic2Data();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Third Party Data Cleared! Schema Fixed.")),
+                );
+              },
+              child: const Text("Format Third-Party Leaks (Dic2)", style: TextStyle(color: Colors.white)),
+            ) */
           ],
         ),
       ),

@@ -7,10 +7,10 @@
 <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
-
+<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+<uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+<uses-permission android:name="android.permission.WAKE_LOCK" />
     <application
         android:label="NeuralGate"
         android:name="${applicationName}"
@@ -37,6 +37,8 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+
+       
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
@@ -47,11 +49,21 @@
 
        <receiver android:name="com.shounakmulay.telephony.sms.IncomingSmsReceiver"
     android:permission="android.permission.BROADCAST_SMS" android:exported="true">
+
+
     <intent-filter>
         <action android:name="android.provider.Telephony.SMS_RECEIVED"/>
     </intent-filter>
 </receiver>  
-
+    <service
+    android:name="com.shounakmulay.telephony.sms.IncomingSmsService"
+    android:permission="android.permission.BIND_JOB_SERVICE"
+    android:exported="true" />
+     
+     <service
+            android:name="id.flutter.flutter_background_service.BackgroundService"
+            android:foregroundServiceType="location"
+            android:exported="true" />
 
 
     </application>

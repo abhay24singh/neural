@@ -7,7 +7,9 @@ import 'controllers/neural_controller.dart';
 import 'widgets/neural_graph.dart';
 // Note: Make sure the file is named settings_page.dart, or change this import accordingly
 import 'settings_page.dart'; 
-
+import 'package:permission_handler/permission_handler.dart'; // Add this import
+import 'services/background_service.dart';
+import 'screens/security_dashboard.dart'; // Add this line!
 void main() {
   runApp(
     ChangeNotifierProvider(
@@ -57,22 +59,22 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   
-  @override
+@override
   void initState() {
     super.initState();
     
     // 🔥 App khulte hi sabse pehle ye function chalega
     _requestAllPermissions();
 
-    // Fir Pop-up check karega
+    // Fir naya Pop-up system check karega (Handles BOTH Owners and Strangers)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<NeuralController>(context, listen: false).checkForCompromisedUsers(context);
+      Provider.of<NeuralController>(context, listen: false).checkAlerts(context);
     });
   }
 
   // 🛡️ PERMISSION MANGER FUNCTION
   // 🛡️ PERMISSION MANAGER & SMS LISTENER
-  Future<void> _requestAllPermissions() async {
+  /*arpit: original Future<void> _requestAllPermissions() async {
     // 1. Location Permission
     LocationPermission locPerm = await Geolocator.checkPermission();
     if (locPerm == LocationPermission.denied) {
@@ -95,6 +97,184 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     } else {
       print("❌ SMS Permission Denied!");
+    }
+  } */
+
+  // 🛡️ PERMISSION MANAGER & SMS LISTENER
+  /*arpit:old Future<void> _requestAllPermissions() async {
+    // --------------------------------------------------------
+    // STEP 1: FOREGROUND LOCATION
+    // --------------------------------------------------------
+    LocationPermission locPerm = await Geolocator.checkPermission();
+    if (locPerm == LocationPermission.denied) {
+      locPerm = await Geolocator.requestPermission();
+    }
+    
+    // --------------------------------------------------------
+    // STEP 2: BACKGROUND LOCATION (The Android 11+ Fix)
+    // --------------------------------------------------------
+    // If the user only gave "While using the app" permission, 
+    // we MUST ask again to trigger the Background permission request.
+    if (locPerm == LocationPermission.whileInUse) {
+      print("⚠️ Foreground granted. Now requesting Background Location...");
+      
+      // On Android 11+, this will push the user to the App Settings screen.
+      // They MUST manually select "Allow all the time".
+      locPerm = await Geolocator.requestPermission(); 
+    }
+
+    if (locPerm != LocationPermission.always) {
+      print("❌ WARNING: Background location ('Allow all the time') denied. Location won't fetch when app is minimized.");
+    } else {
+      print("✅ Background Location Granted!");
+    }
+
+    // --------------------------------------------------------
+    // STEP 3: SMS & PHONE PERMISSIONS
+    // --------------------------------------------------------
+    bool? smsPermission = await Telephony.instance.requestPhoneAndSmsPermissions;
+    
+    if (smsPermission != null && smsPermission) {
+      print("✅ SMS Permissions Granted! Starting Listener...");
+      
+      // 🔥 YAHAN ENGINE START HOTA HAI 🔥
+      Telephony.instance.listenIncomingSms(
+        onNewMessage: (SmsMessage message) {
+          // Agar app open hai (Foreground) tab bhi check karo
+          backgroundSmsHandler(message); 
+        },
+        onBackgroundMessage: backgroundSmsHandler, // App background/kill hai tab check karo
+      );
+    } else {
+      print("❌ SMS Permission Denied!");
+    }
+  } */
+
+  /* Future<void> _requestAllPermissions() async {
+    print("🛡️ Starting aggressive permission requests...");
+
+    // STEP 1: FORCE IGNORE BATTERY OPTIMIZATIONS (Crucial for Vivo/Xiaomi)
+    // This pops up a system dialog asking the user to let the app run unrestricted.
+    if (await Permission.ignoreBatteryOptimizations.isDenied) {
+      print("🔋 Requesting Battery Optimization Bypass...");
+      await Permission.ignoreBatteryOptimizations.request();
+    }
+
+    // STEP 2: FOREGROUND LOCATION
+    PermissionStatus locStatus = await Permission.locationWhenInUse.request();
+
+    // STEP 3: BACKGROUND LOCATION (Allow all the time)
+    if (locStatus.isGranted) {
+      if (await Permission.locationAlways.isDenied) {
+        print("📍 Requesting Background Location (Allow all the time)...");
+        // This forces the settings page open on Android 11+
+        await Permission.locationAlways.request();
+      }
+    } else {
+      print("❌ User denied foreground location.");
+    }
+
+    // STEP 4: SMS & PHONE PERMISSIONS
+    await Permission.sms.request();
+    await Permission.phone.request();
+
+    // old working STEP 5: VERIFY AND START ENGINE
+    /* if (await Permission.sms.isGranted) {
+      print("✅ All core permissions look good! Starting SMS Listener...");
+      
+      /* Telephony.instance.listenIncomingSms(
+        onNewMessage: (SmsMessage message) {
+          backgroundSmsHandler(message); 
+        },
+        onBackgroundMessage: backgroundSmsHandler, 
+      ); */
+
+      // 🔥 YAHAN ENGINE START HOTA HAI 🔥
+      Telephony.instance.listenIncomingSms(
+        onNewMessage: foregroundSmsHandler,      // Use the new Foreground handler!
+        onBackgroundMessage: backgroundSmsHandler, // Keep the Background handler here
+      );
+    } else {
+      print("❌ SMS Permission Denied! Engine cannot start.");
+    } */
+
+    // STEP 5: VERIFY AND START THE UNSTOPPABLE ENGINE
+    if (await Permission.sms.isGranted) {
+      print("✅ All permissions granted! Booting Foreground Service...");
+      
+      // 🔥 Start the 24/7 Service instead of the standard listener
+      // This will trigger the persistent notification and run the listener in the background
+      await initializeBackgroundService();
+      
+    } else {
+      print("❌ SMS Permission Denied! Engine cannot start.");
+    }
+  } */
+  // 🛡️ THE BULLETPROOF PERMISSION MANAGER
+  Future<void> _requestAllPermissions() async {
+    print("🛡️ Starting permission checks...");
+
+    try {
+      // --------------------------------------------------------
+      // STEP 1: FOREGROUND LOCATION (Check first!)
+      // --------------------------------------------------------
+      if (await Permission.locationWhenInUse.isDenied) {
+        await Permission.locationWhenInUse.request();
+      }
+
+      // --------------------------------------------------------
+      // STEP 2: BACKGROUND LOCATION (Check first!)
+      // --------------------------------------------------------
+      if (await Permission.locationWhenInUse.isGranted) {
+        if (await Permission.locationAlways.isDenied) {
+          print("📍 Requesting Background Location...");
+          await Permission.locationAlways.request();
+        }
+      }
+
+      // --------------------------------------------------------
+      // STEP 3: SMS & PHONE (Check first!)
+      // --------------------------------------------------------
+      if (await Permission.sms.isDenied) {
+        await Permission.sms.request();
+      }
+      if (await Permission.phone.isDenied) {
+        await Permission.phone.request();
+      }
+
+     // --------------------------------------------------------
+      // STEP 4: BOOT THE UNSTOPPABLE ENGINE
+      // --------------------------------------------------------
+      if (await Permission.sms.isGranted) {
+        print("✅ Core permissions granted!");
+        
+        // 1. Turn on the Dumb Shield to keep Vivo awake
+        await initializeBackgroundService(); 
+        
+        // 2. Start the normal Telephony listener 
+        Telephony.instance.listenIncomingSms(
+          onNewMessage: foregroundSmsHandler, 
+          onBackgroundMessage: backgroundSmsHandler, 
+        );
+      }
+      // --------------------------------------------------------
+      // STEP 5: BATTERY REQUEST (Protected & Checked)
+      // --------------------------------------------------------
+      if (await Permission.ignoreBatteryOptimizations.isDenied) {
+        Future.delayed(const Duration(seconds: 2), () async {
+          try {
+            print("🔋 Requesting Battery Optimization Bypass...");
+            await Permission.ignoreBatteryOptimizations.request();
+          } catch (e) {
+            // Vivo's custom OS sometimes blocks this command entirely. 
+            // This catch prevents the app from crashing if Vivo blocks it.
+            print("⚠️ Battery setting returned an error: $e");
+          }
+        });
+      }
+
+    } catch (e) {
+      print("❌ Critical error in permissions: $e");
     }
   }
 
@@ -132,14 +312,28 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: isDark ? Colors.white : Colors.black87
                       )
                     ),
-                    IconButton(
-                      icon: Icon(Icons.settings, color: isDark ? Colors.white : Colors.black87),
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => SettingsPage()),
-                        );
-                      },
+                    // 🛡️ WE WRAPPED THE ICONS IN A NEW ROW HERE
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.security, color: isDark ? Colors.white : Colors.black87),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => const SecurityDashboard()),
+                            );
+                          },
+                        ),
+                        IconButton(
+                          icon: Icon(Icons.settings, color: isDark ? Colors.white : Colors.black87),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => SettingsPage()), // Make sure SettingsPage exists!
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -265,3 +459,4 @@ class ControlLayout extends StatelessWidget {
     ); 
   } 
 }
+

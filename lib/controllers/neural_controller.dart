@@ -1,4 +1,4 @@
- import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:telephony/telephony.dart';
 import 'package:geolocator/geolocator.dart';
@@ -8,73 +8,23 @@ import 'dart:math';
 import 'package:crypto/crypto.dart'; 
 import '../services/esp_service.dart';
 
-// ============================================================================
-// 🔐 1. CODE GENERATOR (Algorithm)
-// ============================================================================
-String generateNewCodeFor(String ownerNumber) {
-  int rng = Random().nextInt(999999); // Random factor
-  String rawData = ownerNumber + rng.toString();
-  List<int> bytes = utf8.encode(rawData); 
-  String newCode = sha256.convert(bytes).toString().substring(0, 6); 
-  return newCode;
-}
-
-// ============================================================================
-// 📍 2. HELPER FUNCTION: SAFE LOCATION SENDER
-// ============================================================================
- 
-// ============================================================================
-// 📍 2. HELPER FUNCTION: SAFE LOCATION SENDER (FIXED)
-// ============================================================================
-// ============================================================================
-// 📍 2. HELPER FUNCTION: SAFE LOCATION SENDER (Anti-Freeze)
-// ============================================================================
-Future<void> _sendLocationSafely(String sender) async {
-  print("📍 [STEP 3] Background location fetch...");
-  Position? pos;
-  
-  try {
-    pos = await Geolocator.getLastKnownPosition();
-    if (pos == null) {
-      pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium, 
-        timeLimit: const Duration(seconds: 4) 
-      );
-    }
-  } catch (e) {
-    print("⚠️ [ERROR] Background location fail: $e");
-  }
-
-  // Background isolate ke liye specific instance
-  final telephony = Telephony.backgroundInstance; 
-
-  if (pos != null) {
-    print("✅ [STEP 4] Location mil gayi! Bhej raha hoon...");
-    // 🔥 FIX: Standard URL
-    String mapLink = "https://maps.google.com/?q=${pos.latitude},${pos.longitude}";
-    
-    telephony.sendSms(
-      to: sender, 
-      message: "NeuralGate Secure Auto-Reply:\n📍 Location:\n$mapLink"
-    );
-    print("🚀 [SUCCESS] Location SMS sent!");
-  } else {
-    print("❌ [FAILED] Phone ne koi location nahi di.");
-    telephony.sendSms(
-      to: sender, 
-      message: "⚠️ NeuralGate Alert: Code accepted, but GPS is OFF or signal is weak on the target device."
-    );
-  }
-}
 
 // ============================================================================
 // 🌐 3. THE GATEKEEPER: BACKGROUND SMS HANDLER
 // ============================================================================
-@pragma('vm:entry-point')
+/* @pragma('vm:entry-point')
 void backgroundSmsHandler(SmsMessage message) async {
   // 🔥 FIX 1: THE MAGIC LINE (Zaroori for Background Tasks)
   WidgetsFlutterBinding.ensureInitialized();
+  //arpit: ping test
   print("📥 [STEP 1] Background Handler Wake Up!");
+  // 🚨 THE PING TEST: Fire this off immediately to prove the isolate woke up
+  if (message.address != null) {
+    Telephony.backgroundInstance.sendSms(
+      to: message.address!, 
+      message: "🤖 PING: NeuralGate Background Isolate is awake!"
+    );
+  }
 
   try {
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -175,6 +125,310 @@ void backgroundSmsHandler(SmsMessage message) async {
     print("❌ Background Handler Error: $e");
   }
 }
+ */
+
+// ============================================================================
+// 🌐 3. THE GATEKEEPERS: FOREGROUND & BACKGROUND HANDLERS
+// ============================================================================
+/* 
+// 1. THIS RUNS ONLY WHEN APP IS KILLED/MINIMIZED
+@pragma('vm:entry-point')
+void backgroundSmsHandler(SmsMessage message) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  print("📥 BACKGROUND Wake Up!");
+  await _processSmsLogic(message, isBackground: true);
+}
+
+// 2. THIS RUNS ONLY WHEN APP IS OPEN ON SCREEN
+void foregroundSmsHandler(SmsMessage message) async {
+  print("📥 FOREGROUND Wake Up!");
+  await _processSmsLogic(message, isBackground: false);
+}
+
+// 3. THE CORE LOGIC (Shared by both)
+Future<void> _processSmsLogic(SmsMessage message, {required bool isBackground}) async {
+  try {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    bool isEnabled = prefs.getBool('remote_request_enabled') ?? true;
+    if (!isEnabled) return;
+
+    String r = message.body?.toLowerCase().trim() ?? ""; 
+    String? sender = message.address;
+    if (sender == null) return;
+
+    print("📩 Sender: $sender | Message: '$r'");
+
+    // ... [KEEP ALL YOUR EXISTING DIC1 / DIC2 CHECKING LOGIC HERE] ...
+    // (Assuming matchedOwner logic is the same as before)
+    
+    // For the sake of the fix, let's pretend it matched:
+    print("✅ Logic complete. Sending Location.");
+    await _sendLocationSafely(sender, isBackground); // Pass the flag!
+
+  } catch (e) {
+    print("❌ Handler Error: $e");
+  }
+}
+
+// ============================================================================
+// 📍 2. HELPER FUNCTION: SAFE LOCATION SENDER
+// ============================================================================
+Future<void> _sendLocationSafely(String sender, bool isBackground) async {
+  print("📍 Fetching location...");
+  Position? pos;
+  
+  try {
+    pos = await Geolocator.getLastKnownPosition();
+    if (pos == null) {
+      pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium, 
+        timeLimit: const Duration(seconds: 4) 
+      );
+    }
+  } catch (e) {
+    print("⚠️ Location fail: $e");
+  }
+
+  // 🔥 THE FIX: Choose the correct instance based on app state!
+  final telephony = isBackground ? Telephony.backgroundInstance : Telephony.instance;
+
+  if (pos != null) {
+    String mapLink = "https://maps.google.com/?q=${pos.latitude},${pos.longitude}";
+    
+    telephony.sendSms(
+      to: sender, 
+      /* message: "NeuralGate Secure Auto-Reply:\n📍 Location:\n $mapLink",
+      isMultipart: true */
+      message: mapLink
+    );
+    print("🚀 [SUCCESS] Location SMS sent!");
+  } else {
+    telephony.sendSms(
+      to: sender, 
+      message: "⚠️ NeuralGate Alert: Code accepted, but GPS is OFF."
+    );
+  }
+}
+ */
+
+
+// Put this OUTSIDE the NeuralController class!
+
+// 1. BACKGROUND HANDLER
+@pragma('vm:entry-point')
+void backgroundSmsHandler(SmsMessage message) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  print("📥 [BACKGROUND MODE] SMS Received!");
+  await _processSmsLogic(message, isBackground: true);
+}
+
+// 2. FOREGROUND HANDLER
+void foregroundSmsHandler(SmsMessage message) async {
+  print("📥 [FOREGROUND MODE] SMS Received!");
+  await _processSmsLogic(message, isBackground: false);
+}
+
+// ============================================================================
+// 🧠 THE CORE SMS LOGIC (Rebuilt for Strict Constraints & UI Visibility)
+// ============================================================================
+Future<void> _processSmsLogic(SmsMessage message, {required bool isBackground}) async {
+  try {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    
+    // 🚨 MAGIC FIX: Force the background isolate to sync with the main app!
+    await prefs.reload();
+
+    bool isEnabled = prefs.getBool('remote_request_enabled') ?? true;
+    if (!isEnabled) return;
+
+    String r = message.body?.toLowerCase().trim() ?? ""; 
+    String? sender = message.address;
+    if (sender == null) return;
+
+    print("📩 Sender: $sender | Message: '$r'");
+
+    int maxTpLimit = prefs.getInt('max_tp_limit') ?? 3; // Global Leak Limit
+    int maxReqLimit = prefs.getInt('max_req_limit') ?? 5; // Individual Stranger Limit
+
+    Map<String, dynamic> dic1 = jsonDecode(prefs.getString('dic1_authorized') ?? "{}");
+    Map<String, dynamic> dic2 = jsonDecode(prefs.getString('dic2_leaks') ?? "{}");
+
+    // 🔍 1. FIND THE CODE OWNER
+    String? matchedOwner; 
+    for (String ownerNumber in dic1.keys) {
+      if (dic1[ownerNumber]['code'] == r) {
+        matchedOwner = ownerNumber;
+        break;
+      }
+    }
+
+    if (matchedOwner == null) {
+      print("❌ Invalid Code. Ignoring.");
+      return; 
+    }
+
+    // 🛑 2. CHECK IF CODE IS ALREADY DEAD
+    if (dic1[matchedOwner]['code'] == "EXPIRED") {
+      print("🚫 This code was compromised and is EXPIRED. Ignoring request.");
+      return;
+    }
+
+    // ✅ 3. SCENARIO A: AUTHORIZED OWNER (Send as is)
+    if (sender == matchedOwner) {
+      print("✅ Owner verified. Sending location immediately.");
+      await _sendLocationSafely(sender, isBackground);
+      return;
+    }
+
+    // ⚠️ 4. SCENARIO B: THIRD PARTY (Stranger)
+    print("⚠️ Third Party detected! Sender: $sender using code of: $matchedOwner");
+
+    // Initialize the stranger if it's their first time
+    if (!dic2.containsKey(sender)) {
+      dic2[sender] = {
+        "used_code_of": matchedOwner,
+        "request_count": 0,
+        "status": "ACTIVE"
+      };
+    }
+
+    // Check if this specific stranger is already blocked
+    if (dic2[sender]['status'] == "BLOCKED") {
+      print("🚫 This Third Party is BLOCKED. Ignoring request.");
+      return;
+    }
+
+    // 📈 5. INCREMENT BOTH COUNTERS
+    int strangerCount = (dic2[sender]['request_count'] ?? 0) + 1;
+    int totalLeakCount = (dic1[matchedOwner]['leak_count'] ?? 0) + 1;
+    
+    dic2[sender]['request_count'] = strangerCount;
+    dic1[matchedOwner]['leak_count'] = totalLeakCount;
+
+    bool shouldSendLocation = true;
+
+    // 🚨 6. CHECK GLOBAL LEAK LIMIT (Third party count > limit)
+    if (totalLeakCount > maxTpLimit) {
+      print("🚨 Owner's Leak Limit Exceeded! Expiring Code...");
+      dic1[matchedOwner]['code'] = "EXPIRED";
+      shouldSendLocation = false;
+
+      // Add to popup list so UI can ask user to generate a new code
+      List<String> compromised = prefs.getStringList('compromised_users') ?? [];
+      if (!compromised.contains(matchedOwner)) compromised.add(matchedOwner);
+      await prefs.setStringList('compromised_users', compromised);
+    }
+
+    // 🚨 7. CHECK INDIVIDUAL THIRD PARTY LIMIT (Stranger count > limit)
+    // (Only checks if the global limit wasn't already tripped)
+    if (shouldSendLocation && strangerCount > maxReqLimit) {
+      print("🚨 Third Party reached max requests! Blocking...");
+      dic2[sender]['status'] = "BLOCKED";
+      shouldSendLocation = false;
+
+      // Add to popup list so UI can ask user to reset their limit
+      List<String> exhaustedTPs = prefs.getStringList('exhausted_third_parties') ?? [];
+      if (!exhaustedTPs.contains(sender)) exhaustedTPs.add(sender);
+      await prefs.setStringList('exhausted_third_parties', exhaustedTPs);
+    }
+
+    // 💾 8. SAVE EVERYTHING TO MEMORY
+    await prefs.setString('dic1_authorized', jsonEncode(dic1));
+    await prefs.setString('dic2_leaks', jsonEncode(dic2));
+
+    // 🚀 9. FINALLY SEND LOCATION (If limits weren't breached)
+    if (shouldSendLocation) {
+      print("✅ Limits OK. Sending Location to Third Party.");
+      await _sendLocationSafely(sender, isBackground);
+    } else {
+      print("🚫 Limits breached. Location withheld.");
+    }
+
+  } catch (e) {
+    print("❌ Logic Error: $e");
+  }
+}
+
+// 4. LOCATION SENDER
+Future<void> _sendLocationSafely(String sender, bool isBackground) async {
+  print("📍 Fetching location...");
+  Position? pos;
+  try {
+    if (isBackground) {
+      pos = await Geolocator.getLastKnownPosition();
+    } else {
+      pos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.medium, timeLimit: const Duration(seconds: 4));
+    }
+  } catch (e) {
+    print("⚠️ Location fail: $e");
+  }
+
+  // 🔥 MAGIC SWITCH
+  final telephony = isBackground ? Telephony.backgroundInstance : Telephony.instance;
+
+  if (pos != null) {
+    String mapLink = "https://maps.google.com/?q=${pos.latitude},${pos.longitude}";
+    telephony.sendSms(to: sender, message: "📍 Location:\n$mapLink");
+    print("🚀 SMS Sent!");
+  }
+}
+
+
+
+// ============================================================================
+// 🔐 1. CODE GENERATOR (Algorithm)
+// ============================================================================
+String generateNewCodeFor(String ownerNumber) {
+  int rng = Random().nextInt(999999); // Random factor
+  String rawData = ownerNumber + rng.toString();
+  List<int> bytes = utf8.encode(rawData); 
+  String newCode = sha256.convert(bytes).toString().substring(0, 6); 
+  return newCode;
+}
+
+// ============================================================================
+// 📍 2. HELPER FUNCTION: SAFE LOCATION SENDER (Anti-Freeze)
+// ============================================================================
+/* Future<void> _sendLocationSafely(String sender) async {
+  print("📍 [STEP 3] Background location fetch...");
+  Position? pos;
+  
+  try {
+    pos = await Geolocator.getLastKnownPosition();
+    if (pos == null) {
+      pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium, 
+        timeLimit: const Duration(seconds: 4) 
+      );
+    }
+  } catch (e) {
+    print("⚠️ [ERROR] Background location fail: $e");
+  }
+
+  // Background isolate ke liye specific instance
+  final telephony = Telephony.backgroundInstance; //arpit: instance; 
+
+  if (pos != null) {
+    print("✅ [STEP 4] Location mil gayi! Bhej raha hoon...");
+    // 🔥 FIX: Standard URL
+    String mapLink = "https://maps.google.com/?q=${pos.latitude},${pos.longitude}";
+    
+    telephony.sendSms(
+      to: sender, 
+      message: "NeuralGate Secure Auto-Reply:\n📍 Location:\n $mapLink",
+      isMultipart: true 
+    );
+    print("🚀 [SUCCESS] no Location SMS sent!");
+
+  } else {
+    print("❌ [FAILED] Phone ne koi location nahi di.");
+    telephony.sendSms(
+      to: sender, 
+      message: "⚠️ NeuralGate Alert: Code accepted, but GPS is OFF or signal is weak on the target device."
+    );
+  }
+} */
+
 
 // ============================================================================
 // 🧠 4. MAIN NEURAL CONTROLLER CLASS
@@ -213,56 +467,130 @@ class NeuralController extends ChangeNotifier {
     points = List.generate(50, (index) => 0.0);
   }
 
-  // ==========================================
-  // 🔔 POP-UP HANDLER FOR LEAKED CODES
-  // ==========================================
-  void checkForCompromisedUsers(BuildContext context) async {
+  // =======================================================================
+  // 🔔 SMART ALERT SYSTEM (Handles both Compromised Owners & Third Parties)
+  // =======================================================================
+  
+  Future<void> checkAlerts(BuildContext context) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> compromisedUsers = prefs.getStringList('compromised_users') ?? [];
-
-    for (String compromisedOwner in compromisedUsers) {
-      showDialog(
-        context: context,
-        barrierDismissible: false, 
-        builder: (context) => AlertDialog(
-          title: const Text("🚨 Code Leak Detected!"),
-          content: Text("Number: $compromisedOwner ka code limit cross kar chuka hai.\n\nKya aap naya code generate karke is user ko bhejna chahte hain?"),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                compromisedUsers.remove(compromisedOwner);
-                await prefs.setStringList('compromised_users', compromisedUsers);
-                Navigator.pop(context);
-              },
-              child: const Text("NO", style: TextStyle(color: Colors.red)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                String newCode = generateNewCodeFor(compromisedOwner);
-                
-                dic1Authorized[compromisedOwner] = {"code": newCode, "leak_count": 0};
-                await prefs.setString('dic1_authorized', jsonEncode(dic1Authorized));
-                
-                dic2Leaks.removeWhere((key, value) => value['owner'] == compromisedOwner);
-                await prefs.setString('dic2_leaks', jsonEncode(dic2Leaks));
-                
-                Telephony.instance.sendSms(
-                  to: compromisedOwner, 
-                  message: "NeuralGate Alert: Your previous code was compromised. Your NEW Secret Code is: $newCode"
-                );
-
-                compromisedUsers.remove(compromisedOwner);
-                await prefs.setStringList('compromised_users', compromisedUsers);
-                
-                notifyListeners();
-                Navigator.pop(context);
-              },
-              child: const Text("YES, Generate & Send"),
-            )
-          ],
-        )
-      );
+    
+    // 1. Check Third Parties first
+    List<String> exhaustedTPs = prefs.getStringList('exhausted_third_parties') ?? [];
+    if (exhaustedTPs.isNotEmpty) {
+      _showThirdPartyAlert(context, exhaustedTPs.first, prefs);
+      return; // Stop here, the popup will trigger the next check when closed
     }
+
+    // 2. If no Third Parties, check Compromised Owners
+    List<String> compromised = prefs.getStringList('compromised_users') ?? [];
+    if (compromised.isNotEmpty) {
+      _showCompromisedOwnerAlert(context, compromised.first, prefs);
+    }
+  }
+
+  void _showThirdPartyAlert(BuildContext context, String strangerNum, SharedPreferences prefs) {
+    // Safely get the owner's number for the UI text
+    String ownerNum = "Unknown";
+    if (dic2Leaks.containsKey(strangerNum)) {
+      ownerNum = dic2Leaks[strangerNum]['used_code_of'] ?? "Unknown";
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, 
+      builder: (context) => AlertDialog(
+        title: const Text("🚨 Stranger Limit Reached!"),
+        content: Text("Number: $strangerNum has exhausted their request limit using $ownerNum's code.\n\nDo you want to reset their limit and allow them to request locations again?"),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              // NO: Keep blocked, just remove from alert list
+              List<String> list = prefs.getStringList('exhausted_third_parties') ?? [];
+              list.remove(strangerNum);
+              await prefs.setStringList('exhausted_third_parties', list);
+              
+              Navigator.pop(context);
+              checkAlerts(context); // 🔄 Check if there are more alerts
+            },
+            child: const Text("NO (Keep Blocked)", style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // YES: Reset count, unblock, and remove from alert list
+              if (dic2Leaks.containsKey(strangerNum)) {
+                dic2Leaks[strangerNum]['request_count'] = 0;
+                dic2Leaks[strangerNum]['status'] = "ACTIVE";
+                await prefs.setString('dic2_leaks', jsonEncode(dic2Leaks));
+              }
+
+              List<String> list = prefs.getStringList('exhausted_third_parties') ?? [];
+              list.remove(strangerNum);
+              await prefs.setStringList('exhausted_third_parties', list);
+              
+              notifyListeners();
+              Navigator.pop(context);
+              checkAlerts(context); // 🔄 Check if there are more alerts
+            },
+            child: const Text("YES (Reset Limit)"),
+          )
+        ],
+      )
+    );
+  }
+
+  void _showCompromisedOwnerAlert(BuildContext context, String ownerNum, SharedPreferences prefs) {
+    showDialog(
+      context: context,
+      barrierDismissible: false, 
+      builder: (context) => AlertDialog(
+        title: const Text("🚨 Code Leak Detected!"),
+        content: Text("Number: $ownerNum ka code limit cross kar chuka hai aur block ho gaya hai.\n\nKya aap naya code generate karke is user ko bhejna chahte hain?"),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              // NO: Keep code EXPIRED, just remove from alert list
+              List<String> list = prefs.getStringList('compromised_users') ?? [];
+              list.remove(ownerNum);
+              await prefs.setStringList('compromised_users', list);
+              
+              Navigator.pop(context);
+              checkAlerts(context); // 🔄 Check if there are more alerts
+            },
+            child: const Text("NO (Keep Expired)", style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              // YES: Generate new code, update dictionaries, text user
+              String newCode = generateNewCodeFor(ownerNum);
+              
+              // 1. Reset Owner's record
+              dic1Authorized[ownerNum] = {"code": newCode, "leak_count": 0};
+              await prefs.setString('dic1_authorized', jsonEncode(dic1Authorized));
+              
+              // 2. Erase any third parties who were using the old code
+              dic2Leaks.removeWhere((key, value) => value['used_code_of'] == ownerNum);
+              await prefs.setString('dic2_leaks', jsonEncode(dic2Leaks));
+              
+              // 3. Send SMS
+              Telephony.instance.sendSms(
+                to: ownerNum, 
+                message: "NeuralGate Alert: Your previous code was compromised. Your NEW Secret Code is: $newCode"
+              );
+
+              // 4. Clear from popup list
+              List<String> list = prefs.getStringList('compromised_users') ?? [];
+              list.remove(ownerNum);
+              await prefs.setStringList('compromised_users', list);
+              
+              notifyListeners();
+              Navigator.pop(context);
+              checkAlerts(context); // 🔄 Check if there are more alerts
+            },
+            child: const Text("YES (Generate & Send)"),
+          )
+        ],
+      )
+    );
   }
 
   // ==========================================
@@ -270,6 +598,9 @@ class NeuralController extends ChangeNotifier {
   // ==========================================
   Future<void> loadDictionaries() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
+    
+    // 🚨 MAGIC FIX: Force the UI to fetch the absolute latest data
+    await prefs.reload(); 
     
     String? d1Data = prefs.getString('dic1_authorized');
     if (d1Data != null) dic1Authorized = jsonDecode(d1Data);
@@ -279,13 +610,21 @@ class NeuralController extends ChangeNotifier {
     
     notifyListeners();
   }
-  
+
   void clearDic1Data() async {
     dic1Authorized.clear();
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('dic1_authorized');
     notifyListeners();
     print("🧹 Dictionary 1 poori tarah clear ho gayi!");
+  }
+
+  void clearDic2Data() async {
+    dic2Leaks.clear();
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.remove('dic2_leaks');
+    notifyListeners();
+    print("🧹 Dictionary 2 (Third Parties) poori tarah clear ho gayi!");
   }
 
   void updateLimits(int tpLimit, int reqLimit) async {
