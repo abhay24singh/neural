@@ -273,18 +273,35 @@ Future<void> _processSmsLogic(SmsMessage message, {required bool isBackground}) 
       return;
     }
 
-    // ✅ 3. SCENARIO A: AUTHORIZED OWNER (Send as is)
-    if (sender == matchedOwner) {
+    // ✅ 3. SCENARIO A: AUTHORIZED OWNER (Send as is)-----------
+    /*if (sender == matchedOwner) {
       print("✅ Owner verified. Sending location immediately.");
       await _sendLocationSafely(sender, isBackground);
       return;
-    }
+    } */
+     //---------------------------
+    // ✅ 3. SCENARIO A: AUTHORIZED OWNER (Send as is)
+    // 🔥 FIX: The "Last 10 Digits" Ultimate Matcher (Ignores 0, +91, spaces)
+    String cleanSender = sender.replaceAll(RegExp(r'[^0-9]'), ''); // Sirf numbers rakhega
+    if (cleanSender.length > 10) cleanSender = cleanSender.substring(cleanSender.length - 10);
 
+    String cleanOwner = matchedOwner.replaceAll(RegExp(r'[^0-9]'), '');
+    if (cleanOwner.length > 10) cleanOwner = cleanOwner.substring(cleanOwner.length - 10);
+
+    if (cleanSender == cleanOwner) {
+      print("✅ Owner verified! (Matched 10 digits). Sending location...");
+      await _sendLocationSafely(sender, isBackground);
+      return; // Ye code ko aage counter tak jaane hi nahi dega
+    }
+      //---------------------------
     // ⚠️ 4. SCENARIO B: THIRD PARTY (Stranger)
     print("⚠️ Third Party detected! Sender: $sender using code of: $matchedOwner");
+    
+    bool isNewStranger = false;
 
     // Initialize the stranger if it's their first time
     if (!dic2.containsKey(sender)) {
+      isNewStranger = true;
       dic2[sender] = {
         "used_code_of": matchedOwner,
         "request_count": 0,
@@ -300,12 +317,19 @@ Future<void> _processSmsLogic(SmsMessage message, {required bool isBackground}) 
 
     // 📈 5. INCREMENT BOTH COUNTERS
     int strangerCount = (dic2[sender]['request_count'] ?? 0) + 1;
-    int totalLeakCount = (dic1[matchedOwner]['leak_count'] ?? 0) + 1;
-    
     dic2[sender]['request_count'] = strangerCount;
-    dic1[matchedOwner]['leak_count'] = totalLeakCount;
+
+    //owner count increment when new stranger use the code of owner
+    if(isNewStranger){
+      dic1[matchedOwner]['leak_count'] = (dic1[matchedOwner]['leak_count'] ?? 0) + 1;
+    }
 
     bool shouldSendLocation = true;
+    int totalLeakCount = (dic1[matchedOwner]['leak_count'] ?? 0);
+    
+    
+    dic1[matchedOwner]['leak_count'] = totalLeakCount;
+
 
     // 🚨 6. CHECK GLOBAL LEAK LIMIT (Third party count > limit)
     if (totalLeakCount > maxTpLimit) {
