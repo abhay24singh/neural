@@ -375,7 +375,7 @@ Future<void> _processSmsLogic(SmsMessage message, {required bool isBackground}) 
 
 // 4. LOCATION SENDER
 Future<void> _sendLocationSafely(String sender, bool isBackground) async {
-  print("📍 Fetching location...");
+  /*print("📍 Fetching location...");
   Position? pos;
   try {
     if (isBackground) {
@@ -385,16 +385,46 @@ Future<void> _sendLocationSafely(String sender, bool isBackground) async {
     }
   } catch (e) {
     print("⚠️ Location fail: $e");
+  }*/
+  print("📍 Fetching location...");
+  Position? pos;
+  try {
+    // 🔥 NAYA LOGIC: Sabse pehle fresh location try karo (10 sec do)
+    pos = await Geolocator.getCurrentPosition(
+      desiredAccuracy: LocationAccuracy.high, 
+      timeLimit: const Duration(seconds: 10)
+    );
+  } catch (e) {
+    print("⚠️ Fresh location fail. Trying Last Known... Error: $e");
+    // Agar fresh na mile, tabhi purani location uthao
+    try {
+      pos = await Geolocator.getLastKnownPosition();
+    } catch (e2) {
+      print("⚠️ Purani location bhi fail: $e2");
+    }
   }
 
   // 🔥 MAGIC SWITCH
   final telephony = isBackground ? Telephony.backgroundInstance : Telephony.instance;
 
+  /*if (pos != null) {
+    String mapLink = "https://maps.google.com/?q=${pos.latitude},${pos.longitude}";
+    telephony.sendSms(to: sender, message: "📍 Location:\n$mapLink");
+    print("🚀 SMS Sent!");
+  }*/
   if (pos != null) {
     String mapLink = "https://maps.google.com/?q=${pos.latitude},${pos.longitude}";
     telephony.sendSms(to: sender, message: "📍 Location:\n$mapLink");
     print("🚀 SMS Sent!");
+  } else {
+    // 🔥 NAYA LOGIC: Agar location na mile toh fail SMS bhejo
+    telephony.sendSms(
+      to: sender, 
+      message: "⚠️ NeuralGate Alert: Code verified, but GPS is taking too long or turned OFF. Please try again."
+    );
+    print("❌ Location null thi, Error SMS bhej diya.");
   }
+
 }
 
 
