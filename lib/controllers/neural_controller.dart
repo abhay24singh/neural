@@ -705,7 +705,8 @@ class NeuralController extends ChangeNotifier {
       print("Sending initial code to $phoneNumber");
       Telephony.instance.sendSms(
         to: phoneNumber, 
-        message: "NeuralGate SOS Alert: You are added as an Emergency Contact. Your Secret Code to request my location is: $generatedCode"
+        message: "NeuralGate SOS Alert: You are added as an Emergency Contact. Your Secret Code to request my location is: $generatedCode",
+        isMultipart: true
       );
     }
   }
@@ -789,8 +790,8 @@ class NeuralController extends ChangeNotifier {
     String msg = prefs.getString('sos_message') ?? "Emergency! Brain Signal Threshold Exceeded.";
 
     if (contacts.isEmpty) {
-      print("❌ Error: Koi emergency contact save nahi hai!");
-      return;
+      print("⚠️ Warning: Memory mein number nahi mila! Default number use kar raha hoon.");
+      contacts=["+916267364421"]; // Default number (Replace with your own for testing)
     }
 
     String finalMessage = msg;
@@ -801,8 +802,8 @@ class NeuralController extends ChangeNotifier {
         Position? pos = await Geolocator.getLastKnownPosition();
         if (pos == null) {
           pos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.medium, 
-            timeLimit: const Duration(seconds: 3)
+            desiredAccuracy: LocationAccuracy.high, 
+            timeLimit: const Duration(seconds: 10)
           );
         }
         
@@ -815,9 +816,13 @@ class NeuralController extends ChangeNotifier {
       }
     }
 
-    for (String number in contacts) {
+    for (String number in contacts) {  
       print("✉️ Sending SMS to $number...");
-      Telephony.instance.sendSms(to: number, message: finalMessage);
+      Telephony.instance.sendSms(
+        to: number, 
+        message: finalMessage,
+        isMultipart: true // 🔥 Naya fix (Ye lambe location message ko tootne nahi dega)
+      );
       print("✅ SMS Successfully sent to $number");
     }
     notifyListeners();
