@@ -804,8 +804,8 @@ class NeuralController extends ChangeNotifier {
     String msg = prefs.getString('sos_message') ?? "Emergency! Brain Signal Threshold Exceeded.";
 
     if (contacts.isEmpty) {
-      print("⚠️ Warning: Memory mein number nahi mila! Default number use kar raha hoon.");
-      contacts=["+916267364421"]; // Default number (Replace with your own for testing)
+      print("⚠️ No emergency contacts configured! Cancelling SOS.");
+      return;
     }
 
     String finalMessage = msg;
