@@ -20,6 +20,7 @@ dependencies:
   geolocator: ^11.0.0
   permission_handler: ^11.3.0
   crypto: ^3.0.7
+  flutter_blue_plus: ^1.36.8
 
 dev_dependencies:
   flutter_test:

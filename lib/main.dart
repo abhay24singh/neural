@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:telephony/telephony.dart';
-import 'services/esp_service.dart';
+import 'services/ble_service.dart';
 import 'controllers/neural_controller.dart';
 import 'widgets/neural_graph.dart';
 // Note: Make sure the file is named settings_page.dart, or change this import accordingly
@@ -13,7 +13,7 @@ import 'screens/security_dashboard.dart'; // Add this line!
 void main() {
   runApp(
     ChangeNotifierProvider(
-      create: (_) => NeuralController(EspService(host: "192.168.4.1")),
+      create: (_) => NeuralController(BleService()),
       child: const NeuralGateApp(),
     ),
   );
@@ -223,6 +223,19 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       // --------------------------------------------------------
+      // STEP 1.5: BLUETOOTH PERMISSIONS
+      // --------------------------------------------------------
+      if (await Permission.bluetoothScan.isDenied) {
+        await Permission.bluetoothScan.request();
+      }
+      if (await Permission.bluetoothConnect.isDenied) {
+        await Permission.bluetoothConnect.request();
+      }
+      if (await Permission.bluetooth.isDenied) {
+        await Permission.bluetooth.request();
+      }
+
+      // --------------------------------------------------------
       // STEP 2: BACKGROUND LOCATION (Check first!)
       // --------------------------------------------------------
       if (await Permission.locationWhenInUse.isGranted) {
@@ -303,14 +316,29 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const SizedBox(width: 48), 
-                    Text(
-                      "NEURALGATE",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 4, 
-                        color: isDark ? Colors.white : Colors.black87
-                      )
+                    Row(
+                      children: [
+                        Text(
+                          "NEURALGATE",
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 4, 
+                            color: isDark ? Colors.white : Colors.black87
+                          )
+                        ),
+                        const SizedBox(width: 8),
+                        Consumer<NeuralController>(
+                          builder: (context, ctrl, _) => Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: ctrl.isConnected ? Colors.green : Colors.red,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     // 🛡️ WE WRAPPED THE ICONS IN A NEW ROW HERE
                     Row(

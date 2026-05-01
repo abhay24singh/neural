@@ -6,7 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math'; 
 import 'package:crypto/crypto.dart'; 
-import '../services/esp_service.dart';
+import '../services/ble_service.dart';
 
 
 // ============================================================================
@@ -488,7 +488,7 @@ String generateNewCodeFor(String ownerNumber) {
 // 🧠 4. MAIN NEURAL CONTROLLER CLASS
 // ============================================================================
 class NeuralController extends ChangeNotifier {
-  final EspService _service;
+  final BleService _service;
 
   // --- DICTIONARIES & SECURITY LIMITS ---
   Map<String, dynamic> dic1Authorized = {};
@@ -519,6 +519,19 @@ class NeuralController extends ChangeNotifier {
     loadSettings(); 
     loadDictionaries();
     points = List.generate(50, (index) => 0.0);
+
+    _service.signalStream.listen((value) {
+      points.add(value);
+      if (points.length > 50) {
+        points.removeAt(0);
+      }
+      notifyListeners();
+    });
+
+    _service.connectionStream.listen((connected) {
+      isConnected = connected;
+      notifyListeners();
+    });
   }
 
   // =======================================================================
@@ -777,6 +790,7 @@ class NeuralController extends ChangeNotifier {
 
   void setThreshold(double val) {
     threshold = val;
+    _service.sendThreshold(val);
     notifyListeners();
   }
 
