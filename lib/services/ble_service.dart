@@ -130,6 +130,16 @@ class BleService {
     }
   }
 
+  Future<void> sendCommand(String command) async {
+    if (_rxCharacteristic == null || _targetDevice == null) return;
+    try {
+      await _rxCharacteristic!.write(command.codeUnits, withoutResponse: false);
+      print("BLE: Sent command $command");
+    } catch (e) {
+      print("BLE: Send command failed - $e");
+    }
+  }
+
   void _handleReconnect() {
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(const Duration(seconds: 5), () {

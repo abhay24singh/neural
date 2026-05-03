@@ -507,12 +507,20 @@ class NeuralController extends ChangeNotifier {
   // --- ESP, GRAPH & UI VARIABLES (RESTORED) ---
   List<double> points = [];
   double threshold = 100.0;
-  final double _graphMax = 250.0; 
-  double get graphMax => _graphMax; 
+  double get graphMax {
+    double maxPoint = 0.0;
+    for (double p in points) {
+      if (p > maxPoint) maxPoint = p;
+    }
+    double maxVal = threshold > maxPoint ? threshold : maxPoint;
+    if (maxVal < 250.0) return 250.0;
+    return maxVal + 50.0; 
+  }
 
   String activeMode = "relay";
   bool isConnected = false;
   bool isDarkMode = true; 
+  bool _isCooldown = false;
   
   // --- SOS & TRACKING SETTINGS (RESTORED) ---
   bool isRemoteRequestEnabled = true; 
@@ -530,6 +538,7 @@ class NeuralController extends ChangeNotifier {
       if (points.length > 50) {
         points.removeAt(0);
       }
+      _checkThreshold(value);
       notifyListeners();
     });
 
@@ -809,6 +818,37 @@ class NeuralController extends ChangeNotifier {
 
   void restartBleScan() {
     _service.restartScan();
+  }
+
+  void _checkThreshold(double value) {
+    if (value > threshold && !_isCooldown) {
+      _isCooldown = true;
+      print("🚨 THRESHOLD CROSSED! Value: $value > $threshold");
+      
+      _triggerActiveModeAction();
+
+      // Cooldown of 5 seconds to avoid spamming the trigger
+      Future.delayed(const Duration(seconds: 5), () {
+        _isCooldown = false;
+        print("✅ Cooldown finished. Ready for next trigger.");
+      });
+    }
+  }
+
+  void _triggerActiveModeAction() {
+    print("⚙️ Auto-Triggering action for mode: $activeMode");
+    if (activeMode == "phone") {
+      triggerSmartPhoneAction();
+    } else if (activeMode == "sos") {
+      triggerManual();
+    } else if (activeMode == "relay") {
+      triggerRelay();
+    }
+  }
+
+  void triggerRelay() {
+    print("🔌 Relay trigger requested! Sending 'R' command via BLE...");
+    _service.sendCommand("R");
   }
    
   //--------------

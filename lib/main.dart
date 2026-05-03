@@ -488,7 +488,8 @@ class ControlLayout extends StatelessWidget {
               controller.triggerManual(); 
             } 
             else if (controller.activeMode == "relay") {
-              print("✅ Relay Module selected! (Koi action nahi diya abhi)");
+              print("✅ Relay Module selected! Triggering relay manually.");
+              controller.triggerRelay();
             } 
             else {
               // Agar inme se koi match nahi hua, tab ye chalega
