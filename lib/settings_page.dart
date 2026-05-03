@@ -5,6 +5,8 @@ import 'controllers/neural_controller.dart';
 import 'advanced_settings_screen.dart'; // 🔥 Import for Advanced Settings Screen
 
 class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key});
+
   @override
   _SettingsPageState createState() => _SettingsPageState();
 }
@@ -86,7 +88,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 style: const TextStyle(color: Colors.grey),
               ),
               value: _isDarkMode,
-              activeColor: const Color(0xFF007AFF),
+              activeThumbColor: const Color(0xFF007AFF),
               onChanged: (bool value) {
                 Provider.of<NeuralController>(context, listen: false).toggleTheme(value);
                 setState(() {
@@ -98,11 +100,44 @@ class _SettingsPageState extends State<SettingsPage> {
             
             const Divider(color: Colors.grey),
             const SizedBox(height: 15),
-
+            // ⚙️ SMART PHONE ACTION SELECTOR
+// =================================================================
+// 📱 NAYA SETTING: SMART PHONE ACTION SELECTOR
+// =================================================================
+Consumer<NeuralController>(
+  builder: (context, controller, _) {
+    return ListTile(
+      leading: const Icon(Icons.touch_app, color: Colors.blueAccent),
+      title: const Text(
+        "Smart Phone Action", 
+        style: TextStyle(fontWeight: FontWeight.bold)
+      ),
+      subtitle: const Text("Select what the trigger button controls"),
+      trailing: DropdownButton<String>(
+        value: controller.smartPhoneAction, // Ye naya variable padhega
+        underline: const SizedBox(), 
+        items: const [
+          DropdownMenuItem(value: "media", child: Text("Play/Pause Media")),
+          DropdownMenuItem(value: "call_pick", child: Text("Pick Incoming Call")),
+          DropdownMenuItem(value: "flashlight", child: Text("Toggle Flashlight")),
+          DropdownMenuItem(value: "assistant", child: Text("Voice Assistant")),
+          DropdownMenuItem(value: "volume_up", child: Text("Increase Volume")),
+        ],
+        onChanged: (String? newValue) {
+          if (newValue != null) {
+            // Ye Dropdown change hone par memory mein save karega
+            controller.setSmartPhoneAction(newValue); 
+          }
+        },
+      ),
+    );
+  },
+),
+// =================================================================
             // ---------------------------------------------------------
             // 2. TRACKING CONFIGURATION 
             // ---------------------------------------------------------
-            Text("TRACKING CONFIGURATION", style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
+            const Text("TRACKING CONFIGURATION", style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
             const SizedBox(height: 15),
 
             // 2A. Remote Request (On-Demand) Toggle
@@ -111,7 +146,7 @@ class _SettingsPageState extends State<SettingsPage> {
               title: Text("Allow Remote SMS Request", style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.bold)),
               subtitle: const Text("Reply with location on 'current location' SMS", style: TextStyle(color: Colors.grey, fontSize: 12)),
               value: Provider.of<NeuralController>(context).isRemoteRequestEnabled,
-              activeColor: const Color(0xFF007AFF),
+              activeThumbColor: const Color(0xFF007AFF),
               onChanged: (v) => Provider.of<NeuralController>(context, listen: false).toggleRemoteRequest(v),
             ),
 
@@ -175,7 +210,7 @@ class _SettingsPageState extends State<SettingsPage> {
             // ---------------------------------------------------------
             // 3. CUSTOM SOS MESSAGE
             // ---------------------------------------------------------
-            Text("CUSTOM SOS MESSAGE", style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
+            const Text("CUSTOM SOS MESSAGE", style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
             TextField(
               controller: _msgController,
               style: TextStyle(color: textColor),
@@ -191,7 +226,7 @@ class _SettingsPageState extends State<SettingsPage> {
             // ---------------------------------------------------------
             // 4. EMERGENCY CONTACTS
             // ---------------------------------------------------------
-            Text("EMERGENCY CONTACTS", style: const TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
+            const Text("EMERGENCY CONTACTS", style: TextStyle(color: Color(0xFF007AFF), fontWeight: FontWeight.bold)),
             Row(
               children: [
                 Expanded(

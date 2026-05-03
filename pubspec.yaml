@@ -21,6 +21,7 @@ dependencies:
   permission_handler: ^11.3.0
   crypto: ^3.0.7
   flutter_blue_plus: ^1.36.8
+  vibration: ^3.1.8
 
 dev_dependencies:
   flutter_test:

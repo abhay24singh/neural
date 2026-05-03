@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:math'; 
 import 'package:crypto/crypto.dart'; 
 import '../services/ble_service.dart';
+import 'package:flutter/services.dart'; // MethodChannel ke liye zaroori hai
 
 
 // ============================================================================
@@ -499,6 +500,10 @@ class NeuralController extends ChangeNotifier {
   Map<String, dynamic> get getDic1 => dic1Authorized;
   Map<String, dynamic> get getDic2 => dic2Leaks;
 
+  // 🌉 Native Android se baat karne ke liye Bridge
+  // 📱 Smart Phone Action Mode
+  String smartPhoneAction = "media"; // Default action
+  static const platform = MethodChannel('sos_app/sms');
   // --- ESP, GRAPH & UI VARIABLES (RESTORED) ---
   List<double> points = [];
   double threshold = 100.0;
@@ -752,6 +757,7 @@ class NeuralController extends ChangeNotifier {
     isDarkMode = prefs.getBool('is_dark_mode') ?? true;
     locationStrategy = prefs.getString('location_strategy') ?? "off";
     distanceThreshold = prefs.getDouble('distance_threshold') ?? 1.0;
+    smartPhoneAction = prefs.getString('smart_phone_action') ?? "media";
     notifyListeners();
   }
 
@@ -776,6 +782,13 @@ class NeuralController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setSmartPhoneAction(String action) async {
+    smartPhoneAction = action;
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('smart_phone_action', action);
+    notifyListeners();
+  }
+
   void setDistanceThreshold(double dist) async {
     distanceThreshold = dist;
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -793,7 +806,39 @@ class NeuralController extends ChangeNotifier {
     _service.sendThreshold(val);
     notifyListeners();
   }
+   
+  //--------------
+  // 📱 SMART PHONE HARDWARE CONTROL
+  // 📱 SMART PHONE HARDWARE CONTROL (Media Play/Pause)
+  // 📱 SMART PHONE HARDWARE CONTROL (Multi-Action)
+  Future<void> triggerSmartPhoneAction() async {
+    print("📱 Smart Phone Mode: Action triggered -> $smartPhoneAction");
 
+    try {
+      if (smartPhoneAction == "media") {
+        await platform.invokeMethod('playPauseMedia');
+        print("✅ Media toggled!");
+      } 
+      else if (smartPhoneAction == "call_pick") {
+        await platform.invokeMethod('pickCall');
+        print("✅ Call pick command sent!");
+      } 
+      else if (smartPhoneAction == "flashlight") {
+        await platform.invokeMethod('toggleFlashlight');
+        print("✅ Flashlight toggled!");
+      }
+      else if (smartPhoneAction == "assistant") {
+        await platform.invokeMethod('triggerAssistant');
+        print("✅ Voice Assistant triggered!");
+      }
+      else if (smartPhoneAction == "volume_up") {
+        await platform.invokeMethod('volumeUp');
+        print("✅ Volume increased!");
+      }
+    } catch (e) {
+      print("❌ Failed to execute native action: $e");
+    }
+  }
   // 🚨 FIXED MANUAL TRIGGER (With Location Support)
   // 🚨 FIXED MANUAL TRIGGER (Anti-Freeze & Anti-Spam)
   void triggerManual() async {
@@ -804,8 +849,9 @@ class NeuralController extends ChangeNotifier {
     String msg = prefs.getString('sos_message') ?? "Emergency! Brain Signal Threshold Exceeded.";
 
     if (contacts.isEmpty) {
-      print("⚠️ No emergency contacts configured! Cancelling SOS.");
-      return;
+      print("⚠️ Warning: Memory mein number nahi mila! Default number use kar raha hoon.");
+      // 👇 Yahan +91 ke baad apna default number daal de
+      contacts = ["+916267364421"];
     }
 
     String finalMessage = msg;
@@ -814,12 +860,10 @@ class NeuralController extends ChangeNotifier {
       try {
         // Pehle fast location uthao taaki app freeze na ho
         Position? pos = await Geolocator.getLastKnownPosition();
-        if (pos == null) {
-          pos = await Geolocator.getCurrentPosition(
+        pos ??= await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.high, 
             timeLimit: const Duration(seconds: 10)
           );
-        }
         
         // 🔥 FIX: Standard Google Maps Link (Spam nahi lagega)
         finalMessage += "\n📍 Location: https://maps.google.com/?q=${pos.latitude},${pos.longitude}";

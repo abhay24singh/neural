@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../controllers/neural_controller.dart'; 
 
 class SecurityDashboard extends StatefulWidget {
-  const SecurityDashboard({Key? key}) : super(key: key);
+  const SecurityDashboard({super.key});
 
   @override
   State<SecurityDashboard> createState() => _SecurityDashboardState();
@@ -72,10 +72,10 @@ class _SecurityDashboardState extends State<SecurityDashboard> {
   // ==========================================
   Widget _buildOwnersTab(Map<String, dynamic> dic1) {
     if (dic1.isEmpty) {
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
+          children: [
             Icon(Icons.shield_outlined, size: 64, color: Colors.grey),
             SizedBox(height: 16),
             Text("No Authorized Owners yet.", style: TextStyle(color: Colors.grey, fontSize: 16)),
@@ -143,10 +143,10 @@ class _SecurityDashboardState extends State<SecurityDashboard> {
   // ==========================================
   Widget _buildThirdPartiesTab(Map<String, dynamic> dic2) {
     if (dic2.isEmpty) {
-      return Center(
+      return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
+          children: [
             Icon(Icons.gpp_good_outlined, size: 64, color: Colors.grey),
             SizedBox(height: 16),
             Text("No third-party leaks detected.", style: TextStyle(color: Colors.grey, fontSize: 16)),

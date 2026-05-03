@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:telephony/telephony.dart';
 import 'services/ble_service.dart';
 import 'controllers/neural_controller.dart';
@@ -460,7 +459,27 @@ class ControlLayout extends StatelessWidget {
         ),
         const SizedBox(height: 30),
         ElevatedButton(
-          onPressed: () => controller.triggerManual(),
+          onPressed: () {
+            // 🕵️‍♂️ DEBUG LINE: Ye terminal mein print karega ki asal mein kaunsa mode active hai
+            print("🧐 Button Clicked! Current Active Mode is: '${controller.activeMode}'");
+
+            if (controller.activeMode == "phone") {
+              print("✅ Smart Phone mode detected! Calling triggerSmartPhoneAction...");
+              controller.triggerSmartPhoneAction(); 
+            } 
+            else if (controller.activeMode == "sos") {
+              print("✅ SOS mode detected! Calling triggerManual...");
+              controller.triggerManual(); 
+            } 
+            else if (controller.activeMode == "relay") {
+              print("✅ Relay Module selected! (Koi action nahi diya abhi)");
+            } 
+            else {
+              // Agar inme se koi match nahi hua, tab ye chalega
+              print("⚠️ WARNING: Mode match nahi hua! Default SMS bhej raha hu.");
+              controller.triggerManual(); 
+            }
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF007AFF), 
             foregroundColor: Colors.white, 

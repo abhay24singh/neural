@@ -3,23 +3,25 @@ import 'package:provider/provider.dart';
 import '../controllers/neural_controller.dart';
 
 class AdvancedSettingsScreen extends StatelessWidget {
+  const AdvancedSettingsScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     final controller = Provider.of<NeuralController>(context);
 
     return Scaffold(
-      appBar: AppBar(title: Text("NeuralGate: Advanced Security")),
+      appBar: AppBar(title: const Text("NeuralGate: Advanced Security")),
       body: SingleChildScrollView(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // --- 1. LIMIT CONTROLLERS ---
-            Text("Security Thresholds", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
-            Divider(),
+            const Text("Security Thresholds", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+            const Divider(),
             
             ListTile(
-              title: Text("Max Leak Limit (x per h)"),
+              title: const Text("Max Leak Limit (x per h)"),
               subtitle: Text("Ek code maximum kitne third-party use kar sakte hain: ${controller.maxTpLimit}"),
               trailing: SizedBox(
                 width: 150,
@@ -32,7 +34,7 @@ class AdvancedSettingsScreen extends StatelessWidget {
             ),
 
             ListTile(
-              title: Text("Max Request Limit (per x)"),
+              title: const Text("Max Request Limit (per x)"),
               subtitle: Text("Ek anjaan banda kitni baar request kar sakta hai: ${controller.maxReqLimit}"),
               trailing: SizedBox(
                 width: 150,
