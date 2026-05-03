@@ -138,6 +138,16 @@ class BleService {
     });
   }
 
+  void restartScan() {
+    print("BLE: Manual restart scan triggered.");
+    _isConnecting = false;
+    _reconnectTimer?.cancel();
+    _targetDevice?.disconnect();
+    _targetDevice = null;
+    FlutterBluePlus.stopScan();
+    _startScan();
+  }
+
   void dispose() {
     _reconnectTimer?.cancel();
     _scanSubscription?.cancel();

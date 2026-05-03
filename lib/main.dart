@@ -328,13 +328,29 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 8),
                         Consumer<NeuralController>(
-                          builder: (context, ctrl, _) => Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: ctrl.isConnected ? Colors.green : Colors.red,
-                            ),
+                          builder: (context, ctrl, _) => Row(
+                            children: [
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: ctrl.isConnected ? Colors.green : Colors.red,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  ctrl.restartBleScan();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text("Restarting BLE Scan..."), duration: Duration(seconds: 1)),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+                                  child: Icon(Icons.refresh, size: 18, color: isDark ? Colors.white70 : Colors.black54),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],

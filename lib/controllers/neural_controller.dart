@@ -806,6 +806,10 @@ class NeuralController extends ChangeNotifier {
     _service.sendThreshold(val);
     notifyListeners();
   }
+
+  void restartBleScan() {
+    _service.restartScan();
+  }
    
   //--------------
   // 📱 SMART PHONE HARDWARE CONTROL
