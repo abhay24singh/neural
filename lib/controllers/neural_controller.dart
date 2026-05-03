@@ -864,9 +864,9 @@ class NeuralController extends ChangeNotifier {
         print("✅ Media toggled!");
       } 
       else if (smartPhoneAction == "call_pick") {
-        await platform.invokeMethod('pickCall');
-        print("✅ Call pick command sent!");
-      } 
+        await platform.invokeMethod('toggleCall'); 
+        print("✅ Call Toggle command sent!");
+      }
       else if (smartPhoneAction == "flashlight") {
         await platform.invokeMethod('toggleFlashlight');
         print("✅ Flashlight toggled!");
@@ -878,6 +878,10 @@ class NeuralController extends ChangeNotifier {
       else if (smartPhoneAction == "volume_up") {
         await platform.invokeMethod('volumeUp');
         print("✅ Volume increased!");
+      }
+      else if (smartPhoneAction == "volume_down") {
+        await platform.invokeMethod('volumeDown');
+        print("✅ Volume decreased command sent!");
       }
     } catch (e) {
       print("❌ Failed to execute native action: $e");

@@ -118,10 +118,11 @@ Consumer<NeuralController>(
         underline: const SizedBox(), 
         items: const [
           DropdownMenuItem(value: "media", child: Text("Play/Pause Media")),
-          DropdownMenuItem(value: "call_pick", child: Text("Pick Incoming Call")),
+          DropdownMenuItem(value: "call_pick", child: Text("Toggle Call (Pick/Cut)")),
           DropdownMenuItem(value: "flashlight", child: Text("Toggle Flashlight")),
           DropdownMenuItem(value: "assistant", child: Text("Voice Assistant")),
           DropdownMenuItem(value: "volume_up", child: Text("Increase Volume")),
+          DropdownMenuItem(value: "volume_down", child: Text("Decrease Volume")),
         ],
         onChanged: (String? newValue) {
           if (newValue != null) {
