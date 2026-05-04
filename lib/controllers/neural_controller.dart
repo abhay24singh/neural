@@ -8,7 +8,7 @@ import 'dart:math';
 import 'package:crypto/crypto.dart'; 
 import '../services/ble_service.dart';
 import 'package:flutter/services.dart'; // MethodChannel ke liye zaroori hai
-
+// import 'dart:ui';
 
 // ============================================================================
 // 🌐 3. THE GATEKEEPER: BACKGROUND SMS HANDLER
@@ -215,25 +215,175 @@ Future<void> _sendLocationSafely(String sender, bool isBackground) async {
 
 // Put this OUTSIDE the NeuralController class!
 
-// 1. BACKGROUND HANDLER
-@pragma('vm:entry-point')
-void backgroundSmsHandler(SmsMessage message) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  print("📥 [BACKGROUND MODE] SMS Received!");
-  await _processSmsLogic(message, isBackground: true);
-}
+// // 1. BACKGROUND HANDLER
+// @pragma('vm:entry-point')
+// void backgroundSmsHandler(SmsMessage message) async {
+//   //Arpit : added plugin for buffer acquirement
+//   DartPluginRegistrant.ensureInitialized();
+//   WidgetsFlutterBinding.ensureInitialized();
+//   print("📥 [BACKGROUND MODE] SMS Received!");
+//   await _processSmsLogic(message, isBackground: true);
+// }
 
-// 2. FOREGROUND HANDLER
-void foregroundSmsHandler(SmsMessage message) async {
-  print("📥 [FOREGROUND MODE] SMS Received!");
-  await _processSmsLogic(message, isBackground: false);
-}
+// // 2. FOREGROUND HANDLER
+// void foregroundSmsHandler(SmsMessage message) async {
+//   print("📥 [FOREGROUND MODE] SMS Received!");
+//   await _processSmsLogic(message, isBackground: false);
+// }
 
 // ============================================================================
 // 🧠 THE CORE SMS LOGIC (Rebuilt for Strict Constraints & UI Visibility)
 // ============================================================================
-Future<void> _processSmsLogic(SmsMessage message, {required bool isBackground}) async {
+// Future<void> processSmsLogic(SmsMessage message, {required bool isBackground}) async {
+//   try {
+//     SharedPreferences prefs = await SharedPreferences.getInstance();
+    
+//     // 🚨 MAGIC FIX: Force the background isolate to sync with the main app!
+//     await prefs.reload();
+
+//     bool isEnabled = prefs.getBool('remote_request_enabled') ?? true;
+//     if (!isEnabled) return;
+
+//     String r = message.body?.toLowerCase().trim() ?? ""; 
+//     String? sender = message.address;
+//     if (sender == null) return;
+
+//     print("📩 Sender: $sender | Message: '$r'");
+
+//     int maxTpLimit = prefs.getInt('max_tp_limit') ?? 3; // Global Leak Limit
+//     int maxReqLimit = prefs.getInt('max_req_limit') ?? 5; // Individual Stranger Limit
+
+//     Map<String, dynamic> dic1 = jsonDecode(prefs.getString('dic1_authorized') ?? "{}");
+//     Map<String, dynamic> dic2 = jsonDecode(prefs.getString('dic2_leaks') ?? "{}");
+
+//     // 🔍 1. FIND THE CODE OWNER
+//     String? matchedOwner; 
+//     for (String ownerNumber in dic1.keys) {
+//       if (dic1[ownerNumber]['code'] == r) {
+//         matchedOwner = ownerNumber;
+//         break;
+//       }
+//     }
+
+//     if (matchedOwner == null) {
+//       print("❌ Invalid Code. Ignoring.");
+//       return; 
+//     }
+
+//     // 🛑 2. CHECK IF CODE IS ALREADY DEAD
+//     if (dic1[matchedOwner]['code'] == "EXPIRED") {
+//       print("🚫 This code was compromised and is EXPIRED. Ignoring request.");
+//       return;
+//     }
+
+//     // ✅ 3. SCENARIO A: AUTHORIZED OWNER (Send as is)-----------
+//     /*if (sender == matchedOwner) {
+//       print("✅ Owner verified. Sending location immediately.");
+//       await _sendLocationSafely(sender, isBackground);
+//       return;
+//     } */
+//      //---------------------------
+//     // ✅ 3. SCENARIO A: AUTHORIZED OWNER (Send as is)
+//     // 🔥 FIX: The "Last 10 Digits" Ultimate Matcher (Ignores 0, +91, spaces)
+//     String cleanSender = sender.replaceAll(RegExp(r'[^0-9]'), ''); // Sirf numbers rakhega
+//     if (cleanSender.length > 10) cleanSender = cleanSender.substring(cleanSender.length - 10);
+
+//     String cleanOwner = matchedOwner.replaceAll(RegExp(r'[^0-9]'), '');
+//     if (cleanOwner.length > 10) cleanOwner = cleanOwner.substring(cleanOwner.length - 10);
+
+//     if (cleanSender == cleanOwner) {
+//       print("✅ Owner verified! (Matched 10 digits). Sending location...");
+//       await _sendLocationSafely(sender, isBackground);
+//       return; // Ye code ko aage counter tak jaane hi nahi dega
+//     }
+//       //---------------------------
+//     // ⚠️ 4. SCENARIO B: THIRD PARTY (Stranger)
+//     print("⚠️ Third Party detected! Sender: $sender using code of: $matchedOwner");
+    
+//     bool isNewStranger = false;
+
+//     // Initialize the stranger if it's their first time
+//     if (!dic2.containsKey(sender)) {
+//       isNewStranger = true;
+//       dic2[sender] = {
+//         "used_code_of": matchedOwner,
+//         "request_count": 0,
+//         "status": "ACTIVE"
+//       };
+//     }
+
+//     // Check if this specific stranger is already blocked
+//     if (dic2[sender]['status'] == "BLOCKED") {
+//       print("🚫 This Third Party is BLOCKED. Ignoring request.");
+//       return;
+//     }
+
+//     // 📈 5. INCREMENT BOTH COUNTERS
+//     int strangerCount = (dic2[sender]['request_count'] ?? 0) + 1;
+//     dic2[sender]['request_count'] = strangerCount;
+
+//     //owner count increment when new stranger use the code of owner
+//     if(isNewStranger){
+//       dic1[matchedOwner]['leak_count'] = (dic1[matchedOwner]['leak_count'] ?? 0) + 1;
+//     }
+
+//     bool shouldSendLocation = true;
+//     int totalLeakCount = (dic1[matchedOwner]['leak_count'] ?? 0);
+    
+    
+//     dic1[matchedOwner]['leak_count'] = totalLeakCount;
+
+
+//     // 🚨 6. CHECK GLOBAL LEAK LIMIT (Third party count > limit)
+//     if (totalLeakCount > maxTpLimit) {
+//       print("🚨 Owner's Leak Limit Exceeded! Expiring Code...");
+//       dic1[matchedOwner]['code'] = "EXPIRED";
+//       shouldSendLocation = false;
+
+//       // Add to popup list so UI can ask user to generate a new code
+//       List<String> compromised = prefs.getStringList('compromised_users') ?? [];
+//       if (!compromised.contains(matchedOwner)) compromised.add(matchedOwner);
+//       await prefs.setStringList('compromised_users', compromised);
+//     }
+
+//     // 🚨 7. CHECK INDIVIDUAL THIRD PARTY LIMIT (Stranger count > limit)
+//     // (Only checks if the global limit wasn't already tripped)
+//     if (shouldSendLocation && strangerCount > maxReqLimit) {
+//       print("🚨 Third Party reached max requests! Blocking...");
+//       dic2[sender]['status'] = "BLOCKED";
+//       shouldSendLocation = false;
+
+//       // Add to popup list so UI can ask user to reset their limit
+//       List<String> exhaustedTPs = prefs.getStringList('exhausted_third_parties') ?? [];
+//       if (!exhaustedTPs.contains(sender)) exhaustedTPs.add(sender);
+//       await prefs.setStringList('exhausted_third_parties', exhaustedTPs);
+//     }
+
+//     // 💾 8. SAVE EVERYTHING TO MEMORY
+//     await prefs.setString('dic1_authorized', jsonEncode(dic1));
+//     await prefs.setString('dic2_leaks', jsonEncode(dic2));
+
+//     // 🚀 9. FINALLY SEND LOCATION (If limits weren't breached)
+//     if (shouldSendLocation) {
+//       print("✅ Limits OK. Sending Location to Third Party.");
+//       await _sendLocationSafely(sender, isBackground);
+//     } else {
+//       print("🚫 Limits breached. Location withheld.");
+//     }
+
+//   } catch (e) {
+//     print("❌ Logic Error: $e");
+//   }
+// }
+
+// ============================================================================
+// 🧠 THE CORE SMS LOGIC (Powered by your 10-Digit Matcher)
+// ============================================================================
+Future<void> processSmsLogic(SmsMessage message, {required bool isBackground}) async {
   try {
+    // Extra safety measure for background headless instances
+    WidgetsFlutterBinding.ensureInitialized(); 
+    
     SharedPreferences prefs = await SharedPreferences.getInstance();
     
     // 🚨 MAGIC FIX: Force the background isolate to sync with the main app!
@@ -274,27 +424,19 @@ Future<void> _processSmsLogic(SmsMessage message, {required bool isBackground}) 
       return;
     }
 
-    // ✅ 3. SCENARIO A: AUTHORIZED OWNER (Send as is)-----------
-    /*if (sender == matchedOwner) {
-      print("✅ Owner verified. Sending location immediately.");
-      await _sendLocationSafely(sender, isBackground);
-      return;
-    } */
-     //---------------------------
-    // ✅ 3. SCENARIO A: AUTHORIZED OWNER (Send as is)
-    // 🔥 FIX: The "Last 10 Digits" Ultimate Matcher (Ignores 0, +91, spaces)
-    String cleanSender = sender.replaceAll(RegExp(r'[^0-9]'), ''); // Sirf numbers rakhega
+    // ✅ 3. SCENARIO A: AUTHORIZED OWNER (10-Digit Matcher)
+    String cleanSender = sender.replaceAll(RegExp(r'[^0-9]'), ''); 
     if (cleanSender.length > 10) cleanSender = cleanSender.substring(cleanSender.length - 10);
 
     String cleanOwner = matchedOwner.replaceAll(RegExp(r'[^0-9]'), '');
     if (cleanOwner.length > 10) cleanOwner = cleanOwner.substring(cleanOwner.length - 10);
 
-    if (cleanSender == cleanOwner) {
+    if (cleanSender.isNotEmpty && cleanSender == cleanOwner) {
       print("✅ Owner verified! (Matched 10 digits). Sending location...");
       await _sendLocationSafely(sender, isBackground);
-      return; // Ye code ko aage counter tak jaane hi nahi dega
+      return; // Stop here, no limits are triggered for the owner!
     }
-      //---------------------------
+
     // ⚠️ 4. SCENARIO B: THIRD PARTY (Stranger)
     print("⚠️ Third Party detected! Sender: $sender using code of: $matchedOwner");
     
@@ -320,19 +462,15 @@ Future<void> _processSmsLogic(SmsMessage message, {required bool isBackground}) 
     int strangerCount = (dic2[sender]['request_count'] ?? 0) + 1;
     dic2[sender]['request_count'] = strangerCount;
 
-    //owner count increment when new stranger use the code of owner
-    if(isNewStranger){
+    // Only increment the Global Leak count if this is a BRAND NEW stranger
+    if (isNewStranger) {
       dic1[matchedOwner]['leak_count'] = (dic1[matchedOwner]['leak_count'] ?? 0) + 1;
     }
 
     bool shouldSendLocation = true;
     int totalLeakCount = (dic1[matchedOwner]['leak_count'] ?? 0);
-    
-    
-    dic1[matchedOwner]['leak_count'] = totalLeakCount;
 
-
-    // 🚨 6. CHECK GLOBAL LEAK LIMIT (Third party count > limit)
+    // 🚨 6. CHECK GLOBAL LEAK LIMIT (Total Strangers > Limit)
     if (totalLeakCount > maxTpLimit) {
       print("🚨 Owner's Leak Limit Exceeded! Expiring Code...");
       dic1[matchedOwner]['code'] = "EXPIRED";
@@ -344,8 +482,7 @@ Future<void> _processSmsLogic(SmsMessage message, {required bool isBackground}) 
       await prefs.setStringList('compromised_users', compromised);
     }
 
-    // 🚨 7. CHECK INDIVIDUAL THIRD PARTY LIMIT (Stranger count > limit)
-    // (Only checks if the global limit wasn't already tripped)
+    // 🚨 7. CHECK INDIVIDUAL THIRD PARTY LIMIT (Stranger Requests > Limit)
     if (shouldSendLocation && strangerCount > maxReqLimit) {
       print("🚨 Third Party reached max requests! Blocking...");
       dic2[sender]['status'] = "BLOCKED";
@@ -361,7 +498,7 @@ Future<void> _processSmsLogic(SmsMessage message, {required bool isBackground}) 
     await prefs.setString('dic1_authorized', jsonEncode(dic1));
     await prefs.setString('dic2_leaks', jsonEncode(dic2));
 
-    // 🚀 9. FINALLY SEND LOCATION (If limits weren't breached)
+    // 🚀 9. FINALLY SEND LOCATION
     if (shouldSendLocation) {
       print("✅ Limits OK. Sending Location to Third Party.");
       await _sendLocationSafely(sender, isBackground);

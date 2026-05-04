@@ -9,6 +9,7 @@ import 'settings_page.dart';
 import 'package:permission_handler/permission_handler.dart'; // Add this import
 import 'services/background_service.dart';
 import 'screens/security_dashboard.dart'; // Add this line!
+import 'dart:ui';
 void main() {
   runApp(
     ChangeNotifierProvider(
@@ -209,6 +210,48 @@ class _HomeScreenState extends State<HomeScreen> {
       print("❌ SMS Permission Denied! Engine cannot start.");
     }
   } */
+
+// ============================================================================
+// ⚙️ 1. BACKGROUND HANDLER (MUST LIVE IN MAIN.DART)
+// ============================================================================
+// ============================================================================
+// ⚙️ 1. BACKGROUND HANDLER (MUST LIVE IN MAIN.DART)
+// ============================================================================
+// ============================================================================
+// ⚙️ 1. BACKGROUND HANDLER (MUST LIVE IN MAIN.DART)
+// ============================================================================
+  @pragma('vm:entry-point')
+  void backgroundSmsHandler(SmsMessage message) {
+    print("🚨 [STEP 1] NATIVE TRIGGERED DART BACKGROUND CODE!");
+    
+    try {
+      WidgetsFlutterBinding.ensureInitialized();
+      // We run the logic without 'await' so the native plugin doesn't get confused
+      processSmsLogic(message, isBackground: true).catchError((e) {
+        print("❌ [BACKGROUND ERROR] $e");
+      });
+    } catch (e) {
+      print("❌ FATAL ENTRY POINT CRASH: $e");
+    }
+  }
+
+  // ============================================================================
+  // ⚙️ 2. FOREGROUND HANDLER (MUST LIVE IN MAIN.DART)
+  // ============================================================================
+  void foregroundSmsHandler(SmsMessage message) {
+    print("📥 [FOREGROUND MODE] SMS Received in main.dart!");
+    
+    try {
+      // Run the logic synchronously
+      processSmsLogic(message, isBackground: false).catchError((e) {
+        print("❌ [FOREGROUND ERROR] $e");
+      });
+    } catch (e) {
+      print("❌ FATAL FOREGROUND ERROR: $e");
+    }
+  }
+
+
   // 🛡️ THE BULLETPROOF PERMISSION MANAGER
   Future<void> _requestAllPermissions() async {
     print("🛡️ Starting permission checks...");
@@ -257,18 +300,45 @@ class _HomeScreenState extends State<HomeScreen> {
      // --------------------------------------------------------
       // STEP 4: BOOT THE UNSTOPPABLE ENGINE
       // --------------------------------------------------------
+      // if (await Permission.sms.isGranted) {
+      //   print("✅ Core permissions granted!");
+        
+      //   // 1. Turn on the Dumb Shield to keep Vivo awake
+      //   await initializeBackgroundService(); 
+        
+      //   // 2. Start the normal Telephony listener 
+      //   Telephony.instance.listenIncomingSms(
+      //     onNewMessage: foregroundSmsHandler, 
+      //     onBackgroundMessage: backgroundSmsHandler, 
+      //   );
+      // }
+
       if (await Permission.sms.isGranted) {
-        print("✅ Core permissions granted!");
+        print("✅ Core permissions granted! Attempting to start SMS Engine...");
         
-        // 1. Turn on the Dumb Shield to keep Vivo awake
-        await initializeBackgroundService(); 
-        
-        // 2. Start the normal Telephony listener 
-        Telephony.instance.listenIncomingSms(
-          onNewMessage: foregroundSmsHandler, 
-          onBackgroundMessage: backgroundSmsHandler, 
-        );
+        try {
+          // 1. Turn on the Background Service
+          await initializeBackgroundService(); 
+          print("✅ Background Service Initialized!");
+
+          // 2. Start the Telephony listener
+          print("⏳ Registering Telephony Listeners...");
+          Telephony.instance.listenIncomingSms(
+            onNewMessage: (SmsMessage message) {
+              // 🔥 Safe Anonymous Binding: Forces the bridge to stay open!
+              print("🚨 [BRIDGE] Native triggered Dart!");
+              foregroundSmsHandler(message);
+            }, 
+            listenInBackground: false, // Tell Native to NEVER try backgrounding
+          );
+          print("🚀 TELEPHONY ENGINE SUCCESSFULLY REGISTERED!");
+
+        } catch (e) {
+          print("❌ FATAL ERROR STARTING TELEPHONY ENGINE: $e");
+        }
       }
+
+
       // --------------------------------------------------------
       // STEP 5: BATTERY REQUEST (Protected & Checked)
       // --------------------------------------------------------

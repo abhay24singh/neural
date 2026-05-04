@@ -26,8 +26,47 @@ class BleService {
     _startScan();
   }
 
+//Arpit: Sam version
+/*  void _startScan() async {
+    if (_isConnecting) return;
+
+    print("BLE: Starting scan for $targetDeviceName...");
+    
+    // Listen to scan results
+    _scanSubscription = FlutterBluePlus.scanResults.listen((results) {
+      for (ScanResult r in results) {
+        if (r.device.platformName == targetDeviceName || r.advertisementData.advName == targetDeviceName) {
+          print("BLE: Found $targetDeviceName! Stopping scan.");
+          FlutterBluePlus.stopScan();
+          _connectToDevice(r.device);
+          break;
+        }
+      }
+    });
+
+    try {
+      await FlutterBluePlus.startScan(timeout: const Duration(seconds: 15));
+    } catch (e) {
+      print("BLE: Scan failed - $e");
+      _handleReconnect();
+    }
+  } 
+*/
+
+//ARpit: upgraded version
+// ============================================================================
+  // 🛡️ THE UPGRADED SCAN FUNCTION
+  // ============================================================================
   void _startScan() async {
     if (_isConnecting) return;
+
+    // 🍬 THE SWEET SHIELD: Check Bluetooth state BEFORE scanning!
+    var state = await FlutterBluePlus.adapterState.first;
+    if (state != BluetoothAdapterState.on) {
+      print("⚠️ BLE: Bluetooth is OFF. Pausing scan to protect background engine.");
+      _handleReconnect(); // Quietly try again in 5 seconds
+      return; // STOP execution here! No Native crashes!
+    }
 
     print("BLE: Starting scan for $targetDeviceName...");
     
