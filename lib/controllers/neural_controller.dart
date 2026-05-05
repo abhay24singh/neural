@@ -762,7 +762,7 @@ class NeuralController extends ChangeNotifier {
       barrierDismissible: false, 
       builder: (context) => AlertDialog(
         title: const Text("🚨 Code Leak Detected!"),
-        content: Text("Number: $ownerNum ka code limit cross kar chuka hai aur block ho gaya hai.\n\nKya aap naya code generate karke is user ko bhejna chahte hain?"),
+        content: Text("Security Limit Reached! Number $ownerNum has been blocked due to multiple code leaks.\n\nGenerate and send a new code?"),
         actions: [
           TextButton(
             onPressed: () async {
