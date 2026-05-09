@@ -10,6 +10,23 @@ import 'package:permission_handler/permission_handler.dart'; // Add this import
 import 'services/background_service.dart';
 import 'screens/security_dashboard.dart'; // Add this line!
 import 'dart:ui';
+
+
+@pragma('vm:entry-point')
+  void backgroundSmsHandler(SmsMessage message) {
+    print("🚨 [STEP 1] NATIVE TRIGGERED DART BACKGROUND CODE!");
+    
+    try {
+      WidgetsFlutterBinding.ensureInitialized();
+      // We run the logic without 'await' so the native plugin doesn't get confused
+      processSmsLogic(message, isBackground: true).catchError((e) {
+        print("❌ [BACKGROUND ERROR] $e");
+      });
+    } catch (e) {
+      print("❌ FATAL ENTRY POINT CRASH: $e");
+    }
+  }
+
 void main() {
   runApp(
     ChangeNotifierProvider(
@@ -212,25 +229,12 @@ class _HomeScreenState extends State<HomeScreen> {
   } */
  
 // ============================================================================
-// ⚙️ 1. BACKGROUND HANDLER (MUST LIVE IN MAIN.DART)
+// ⚙️ 1. BACKGROUND HANDLER (MUST LIVE IN MAIN.DART)*****************************
 // ============================================================================
-  @pragma('vm:entry-point')
-  void backgroundSmsHandler(SmsMessage message) {
-    print("🚨 [STEP 1] NATIVE TRIGGERED DART BACKGROUND CODE!");
-    
-    try {
-      WidgetsFlutterBinding.ensureInitialized();
-      // We run the logic without 'await' so the native plugin doesn't get confused
-      processSmsLogic(message, isBackground: true).catchError((e) {
-        print("❌ [BACKGROUND ERROR] $e");
-      });
-    } catch (e) {
-      print("❌ FATAL ENTRY POINT CRASH: $e");
-    }
-  }
+  
 
   // ============================================================================
-  // ⚙️ 2. FOREGROUND HANDLER (MUST LIVE IN MAIN.DART)
+  // ⚙️ 2. FOREGROUND HANDLER (MUST LIVE IN MAIN.DART)*********************
   // ============================================================================
   void foregroundSmsHandler(SmsMessage message) {
     print("📥 [FOREGROUND MODE] SMS Received in main.dart!");
@@ -290,7 +294,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (await Permission.phone.isDenied) {
         await Permission.phone.request();
       }
-
+      
      // --------------------------------------------------------
       // STEP 4: BOOT THE UNSTOPPABLE ENGINE
       // --------------------------------------------------------
@@ -310,8 +314,8 @@ class _HomeScreenState extends State<HomeScreen> {
       if (await Permission.sms.isGranted) {
         print("✅ Core permissions granted! Attempting to start SMS Engine...");
         
-        try {
-          // 1. Turn on the Background Service
+        try { 
+         // 1. Turn on the Background Service
           await initializeBackgroundService(); 
           print("✅ Background Service Initialized!");
 
@@ -323,7 +327,8 @@ class _HomeScreenState extends State<HomeScreen> {
               print("🚨 [BRIDGE] Native triggered Dart!");
               foregroundSmsHandler(message);
             }, 
-            listenInBackground: false, // Tell Native to NEVER try backgrounding
+            onBackgroundMessage: backgroundSmsHandler,
+            listenInBackground: true, // Tell Native to NEVER try backgrounding
           );
           print("🚀 TELEPHONY ENGINE SUCCESSFULLY REGISTERED!");
 
@@ -336,18 +341,18 @@ class _HomeScreenState extends State<HomeScreen> {
       // --------------------------------------------------------
       // STEP 5: BATTERY REQUEST (Protected & Checked)
       // --------------------------------------------------------
-      if (await Permission.ignoreBatteryOptimizations.isDenied) {
+       
         Future.delayed(const Duration(seconds: 2), () async {
           try {
             print("🔋 Requesting Battery Optimization Bypass...");
-            await Permission.ignoreBatteryOptimizations.request();
+            await Permission.ignoreBatteryOptimizations.request(); 
           } catch (e) {
             // Vivo's custom OS sometimes blocks this command entirely. 
             // This catch prevents the app from crashing if Vivo blocks it.
             print("⚠️ Battery setting returned an error: $e");
           }
         });
-      }
+      
 
     } catch (e) {
       print("❌ Critical error in permissions: $e");
